@@ -40,8 +40,8 @@ A simple stock management system with two roles:
 |-------|--------|--------|
 | **1a** | Done (branch `cursor/phase-1a-sell-on-sales-95a3`) | Sell on Sales; speed-tuned form; hide out-of-stock; Dashboard = overview |
 | **1b** | Done (branch `cursor/phase-1b-stock-ledger-voids-8fd8`) | Stock movement ledger; void request → admin execute; Today integrity view |
-| **1c** | **Next** (blocked on 1b merge) | Charts: attendant = me; admin = shop + per person |
-| **2** | Later | Expense apply → approve / send-back; receipt; pending out of totals; in-app + email |
+| **1c** | Done (branch `cursor/phase-1c-dashboard-charts-8fd8`) | Charts: attendant = me; admin = shop + per person |
+| **2** | **Next** | Expense apply → approve / send-back; receipt; pending out of totals; in-app + email |
 
 ### Phase 1a — Sell on Sales (done)
 
@@ -60,10 +60,10 @@ A simple stock management system with two roles:
 - **Admin integrity UI:** Today default — clear stock movements vs sales; highlight discrepancies so products aren’t “left uncatered for.” Week/month filters later; no custom date-range builder in v1.
 - Shape: `sale.status: recorded | void_requested | voided` + void metadata; `stock_movement` collection.
 
-### Phase 1c — Charts (next)
+### Phase 1c — Charts (done)
 
-- **Attendant:** my performance (revenue/units; Today-focused).
-- **Admin:** shop totals + per-attendant breakdown.
+- **Attendant:** my performance (revenue/units; Today-focused hourly charts on Dashboard).
+- **Admin:** shop totals today (hourly) + per-attendant breakdown; Integrity link stays primary.
 - Integrity/discrepancy view from 1b stays primary; trend charts are secondary.
 
 ### Phase 2 — Expense applications + receipts
@@ -107,4 +107,4 @@ A simple stock management system with two roles:
 
 ### Continue here
 
-Next implementation chat should: merge Phase 1b, then implement **Phase 1c only** (charts). Do not start expenses (2) until Phase 1 is done.
+Next implementation chat should: merge Phase 1 (1a→1b→1c), then implement **Phase 2 only** (expense applications + receipts). Do not start Phase 2 charts/integrity rework.

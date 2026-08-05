@@ -1,18 +1,20 @@
 import Link from "next/link";
 
+import { ChartPanel, VerticalBarChart } from "@/components/charts";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { listSellableProducts } from "@/lib/catalog";
-import { sellerStats } from "@/lib/finance";
+import { sellerChartData, sellerStats } from "@/lib/finance";
 import { formatMoney } from "@/lib/pricing";
 import { requireUser } from "@/lib/session";
 
 export default async function DashboardPage() {
   const { user } = await requireUser();
-  const [products, stats] = await Promise.all([
+  const [products, stats, charts] = await Promise.all([
     listSellableProducts(),
     sellerStats(user.id),
+    sellerChartData(user.id),
   ]);
 
   const inStock = products.reduce((sum, p) => sum + p.stock, 0);
@@ -21,7 +23,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Your overview for today. Record sales from the Sales tab."
+        description="Your performance today. Record sales from the Sales tab."
       />
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -47,12 +49,35 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-6">
-        <p className="text-sm text-muted-foreground">
-          Ready to log a sale? Use Sales for a fast product + quantity flow. Charts land in a
-          later phase.
-        </p>
-        <Button render={<Link href="/dashboard/sales" />}>Go to Sales</Button>
+      <div className="mb-8 grid gap-4 lg:grid-cols-2">
+        <ChartPanel
+          title="Your revenue today"
+          description="Hourly totals for sales you recorded — voids do not count."
+        >
+          <VerticalBarChart
+            data={charts.hourly}
+            valueKey="revenueCents"
+            formatValue={formatMoney}
+            emptyMessage="No sales from you yet today."
+          />
+        </ChartPanel>
+
+        <ChartPanel
+          title="Your units today"
+          description="Units sold by hour. Use Sales when you’re ready to log the next one."
+          action={
+            <Button size="sm" render={<Link href="/dashboard/sales" />}>
+              Go to Sales
+            </Button>
+          }
+        >
+          <VerticalBarChart
+            data={charts.hourly}
+            valueKey="unitsSold"
+            formatValue={(n) => `${n}`}
+            emptyMessage="No units sold yet today."
+          />
+        </ChartPanel>
       </div>
     </>
   );

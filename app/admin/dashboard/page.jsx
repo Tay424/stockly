@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { ChartPanel, HorizontalBarList, VerticalBarChart } from "@/components/charts";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { adminStats } from "@/lib/finance";
+import { adminChartData, adminStats } from "@/lib/finance";
 import { formatMoney } from "@/lib/pricing";
 
 const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" });
@@ -21,8 +23,9 @@ function formatMonth(key) {
 }
 
 export default async function AdminDashboardPage() {
-  const stats = await adminStats();
+  const [stats, charts] = await Promise.all([adminStats(), adminChartData()]);
   const { thisMonth } = stats;
+  const { totals, hourly, attendants } = charts;
 
   const stockHint = stats.outOfStock
     ? `${stats.outOfStock} out of stock`
@@ -34,19 +37,28 @@ export default async function AdminDashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description={`How the shop is doing in ${formatMonth(stats.month)}.`}
+        description={`Shop performance for ${charts.periodLabel.toLowerCase()}, with ${formatMonth(stats.month)} context below.`}
       />
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+        <p className="text-sm text-muted-foreground">
+          Integrity stays primary — check movements and voids before leaning on trends.
+        </p>
+        <Button variant="outline" size="sm" render={<Link href="/admin/integrity" />}>
+          Open Integrity
+        </Button>
+      </div>
+
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          value={formatMoney(totals.revenueCents)}
+          label="Sold today"
+          hint={`${totals.saleCount} sales · ${totals.unitsSold} units`}
+        />
         <StatCard
           value={formatMoney(thisMonth.revenueCents)}
           label="Sales this month"
           hint={`${thisMonth.saleCount} sales · ${thisMonth.unitsSold} units`}
-        />
-        <StatCard
-          value={formatMoney(thisMonth.expensesCents)}
-          label="Expenses this month"
-          hint={`${thisMonth.expenseCount} recorded`}
         />
         <StatCard
           value={formatMoney(thisMonth.profitCents)}
@@ -54,6 +66,24 @@ export default async function AdminDashboardPage() {
           hint="Sales minus expenses"
         />
         <StatCard value={stats.productCount} label="Products" hint={stockHint} />
+      </div>
+
+      <div className="mb-8 grid gap-4 lg:grid-cols-2">
+        <ChartPanel
+          title="Revenue today"
+          description="Shop totals by hour — voided sales are excluded."
+        >
+          <VerticalBarChart data={hourly} valueKey="revenueCents" formatValue={formatMoney} />
+        </ChartPanel>
+
+        <ChartPanel
+          title="Per attendant today"
+          description="Who moved the till — revenue share for today."
+        >
+          <div className="-m-4">
+            <HorizontalBarList items={attendants} formatValue={formatMoney} />
+          </div>
+        </ChartPanel>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
