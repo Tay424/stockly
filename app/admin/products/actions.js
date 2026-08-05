@@ -27,6 +27,7 @@ function readForm(formData) {
   const wholesalePriceCents = parseMoneyToCents(formData.get("wholesalePrice"));
   const wholesaleMinQty = Number(formData.get("wholesaleMinQty"));
   const stock = Number(formData.get("stock") ?? 0);
+  const stockReason = String(formData.get("stockReason") ?? "").trim();
   const discountPercent = Number(formData.get("discountPercent") ?? 0);
   const discountStartsAt = readDate(formData.get("discountStartsAt"));
   const discountEndsAt = readDate(formData.get("discountEndsAt"));
@@ -71,23 +72,36 @@ function readForm(formData) {
       discountStartsAt: discountPercent > 0 ? discountStartsAt : null,
       discountEndsAt: discountPercent > 0 ? discountEndsAt : null,
     },
+    stockReason,
   };
 }
 
-export async function saveProductAction(id, formData) {
-  await requireAdmin();
+function revalidateStockPaths() {
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/integrity");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/sales");
+}
 
-  const { error, fields } = readForm(formData);
+export async function saveProductAction(id, formData) {
+  const { user } = await requireAdmin();
+
+  const { error, fields, stockReason } = readForm(formData);
   if (error) return { error };
 
+  const actor = { id: user.id, name: user.name };
+
   if (id) {
-    const ok = await updateProduct(id, fields);
-    if (!ok) return { error: "Product not found." };
+    const result = await updateProduct(id, fields, { actor, stockReason });
+    if (!result.ok) return { error: result.reason };
   } else {
-    await createProduct(fields);
+    if (fields.stock > 0 && !stockReason) {
+      return { error: "A reason is required when setting initial stock." };
+    }
+    await createProduct(fields, { actor, stockReason });
   }
 
-  revalidatePath("/admin/products");
+  revalidateStockPaths();
   return {};
 }
 

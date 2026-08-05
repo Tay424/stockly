@@ -83,6 +83,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [editing, setEditing] = useState(null); // null = closed, {} = new
   const [formCategoryId, setFormCategoryId] = useState("");
+  const [formStock, setFormStock] = useState(0);
   const [busyId, setBusyId] = useState(null);
 
   const { data: products } = useQuery({
@@ -148,6 +149,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
 
   function openForm(product) {
     setFormCategoryId(product?.categoryId ?? "");
+    setFormStock(product?.stock ?? 0);
     setEditing(product ?? {});
   }
 
@@ -395,11 +397,39 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                   type="number"
                   min="0"
                   step="1"
-                  defaultValue={editing?.stock ?? 0}
+                  value={formStock}
+                  onChange={(event) => setFormStock(Number(event.target.value))}
                   required
                 />
               </div>
             </div>
+
+            {(() => {
+              const originalStock = editing?.id ? (editing.stock ?? 0) : 0;
+              const stockChanging = editing?.id
+                ? formStock !== originalStock
+                : formStock > 0;
+              if (!stockChanging) return null;
+              return (
+                <div className="grid gap-2">
+                  <Label htmlFor="product-stock-reason">Stock change reason</Label>
+                  <Textarea
+                    id="product-stock-reason"
+                    name="stockReason"
+                    rows={2}
+                    required
+                    placeholder={
+                      editing?.id
+                        ? "Why is stock changing? (required for the ledger)"
+                        : "Why are you setting this opening stock?"
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Every stock change is written to the movement ledger — no silent edits.
+                  </p>
+                </div>
+              );
+            })()}
 
             <fieldset className="grid gap-4 rounded-lg border border-border p-4">
               <legend className="px-1 text-sm font-medium">Discount</legend>

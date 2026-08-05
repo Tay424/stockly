@@ -39,8 +39,8 @@ A simple stock management system with two roles:
 | Phase | Status | Scope |
 |-------|--------|--------|
 | **1a** | Done (branch `cursor/phase-1a-sell-on-sales-95a3`) | Sell on Sales; speed-tuned form; hide out-of-stock; Dashboard = overview |
-| **1b** | **Next** | Stock movement ledger; void request → admin execute; Today integrity view |
-| **1c** | Blocked on 1b | Charts: attendant = me; admin = shop + per person |
+| **1b** | Done (branch `cursor/phase-1b-stock-ledger-voids-8fd8`) | Stock movement ledger; void request → admin execute; Today integrity view |
+| **1c** | **Next** (blocked on 1b merge) | Charts: attendant = me; admin = shop + per person |
 | **2** | Later | Expense apply → approve / send-back; receipt; pending out of totals; in-app + email |
 
 ### Phase 1a — Sell on Sales (done)
@@ -52,15 +52,15 @@ A simple stock management system with two roles:
 - Out-of-stock: hidden from picker (`listSellableProducts` / `stock > 0`); qty > available still hard-blocked server-side.
 - Online only (no offline queue).
 
-### Phase 1b — Integrity + voids (next)
+### Phase 1b — Integrity + voids (done)
 
 - **Stock movement ledger** as source of truth. Every stock change writes a row: `sale`, `void`, `admin_adjust` (who / when / why / ref). Admin product stock edits must write ledger rows with a reason — no silent stock edits.
 - **Void flow:** attendant requests void (reason) → admin executes (restores stock, marks sale voided, audit trail). No silent sale edits by attendants.
 - **Void limits:** attendant can request void only for **same-day** sales; **one open request per sale**; admin can void **any age**.
 - **Admin integrity UI:** Today default — clear stock movements vs sales; highlight discrepancies so products aren’t “left uncatered for.” Week/month filters later; no custom date-range builder in v1.
-- Suggested shape: extend `sale` with `status: recorded | void_requested | voided` + void metadata; new `stock_movement` collection.
+- Shape: `sale.status: recorded | void_requested | voided` + void metadata; `stock_movement` collection.
 
-### Phase 1c — Charts (after 1b)
+### Phase 1c — Charts (next)
 
 - **Attendant:** my performance (revenue/units; Today-focused).
 - **Admin:** shop totals + per-attendant breakdown.
@@ -107,4 +107,4 @@ A simple stock management system with two roles:
 
 ### Continue here
 
-Next implementation chat should: checkout / continue from branch with this roadmap (or merge Phase 1a first), then implement **Phase 1b only**. Read `app/dashboard/sales/` for the current sell flow and `lib/catalog.js` for `recordSale` / stock updates.
+Next implementation chat should: merge Phase 1b, then implement **Phase 1c only** (charts). Do not start expenses (2) until Phase 1 is done.
