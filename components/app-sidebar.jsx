@@ -9,6 +9,7 @@ import {
   ReceiptTextIcon,
   ScaleIcon,
   ShoppingCartIcon,
+  UsersIcon,
   WalletIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +34,7 @@ const NAV_ICONS = {
   "/admin/dashboard": LayoutDashboardIcon,
   "/admin/products": PackageIcon,
   "/admin/categories": LayersIcon,
+  "/admin/users": UsersIcon,
   "/admin/sales": ReceiptTextIcon,
   "/admin/expenses": WalletIcon,
   "/admin/accounts": ScaleIcon,

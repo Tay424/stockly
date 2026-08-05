@@ -26,6 +26,7 @@ if (existing) {
     name,
     emailVerified: true,
     role: "admin",
+    mustChangePassword: false,
   });
   await ctx.internalAdapter.createAccount({
     userId: user.id,
