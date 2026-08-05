@@ -1,17 +1,17 @@
+import Link from "next/link";
+
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
-import { listSalesBySeller, listSellableProducts } from "@/lib/catalog";
+import { Button } from "@/components/ui/button";
+import { listSellableProducts } from "@/lib/catalog";
 import { sellerStats } from "@/lib/finance";
 import { formatMoney } from "@/lib/pricing";
 import { requireUser } from "@/lib/session";
 
-import { SellForm } from "./sell-form";
-
 export default async function DashboardPage() {
   const { user } = await requireUser();
-  const [products, sales, stats] = await Promise.all([
+  const [products, stats] = await Promise.all([
     listSellableProducts(),
-    listSalesBySeller(user.id),
     sellerStats(user.id),
   ]);
 
@@ -19,7 +19,10 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" description="Record a sale — stock updates automatically." />
+      <PageHeader
+        title="Dashboard"
+        description="Your overview for today. Record sales from the Sales tab."
+      />
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -44,7 +47,13 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <SellForm initialProducts={products} initialSales={sales} />
+      <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-6">
+        <p className="text-sm text-muted-foreground">
+          Ready to log a sale? Use Sales for a fast product + quantity flow. Charts land in a
+          later phase.
+        </p>
+        <Button render={<Link href="/dashboard/sales" />}>Go to Sales</Button>
+      </div>
     </>
   );
 }

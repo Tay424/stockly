@@ -29,3 +29,16 @@ A simple stock management system with two roles:
 - `NEXT_PUBLIC_BASE_URL`
 - `MONGODB_URI`
 - `UPLOADTHING_TOKEN`
+
+## Product roadmap (frozen)
+
+Attendants record sales on **Sales** (`/dashboard/sales`); **Dashboard** is overview only. Build order is strict: **1a → 1b → 1c → 2**.
+
+| Phase | Scope |
+|-------|--------|
+| **1a** (current) | Sell CTA on Sales; speed-tuned online form; hide out-of-stock; Dashboard = stats overview |
+| **1b** | Stock movement ledger (sale / void / admin adjust); attendant same-day void *request*; admin executes void; Today integrity view |
+| **1c** | Charts (attendant = me; admin = shop + per person) — only after 1b |
+| **2** | Expense apply → approve / send-back; receipt image; pending excluded from totals; in-app + email (email may wait on provider secrets) |
+
+Key rules already decided: one sale at a time; no silent sale edits; one open void request per sale; admin can void any age; legacy expenses migrate to `approved` in Phase 2.
