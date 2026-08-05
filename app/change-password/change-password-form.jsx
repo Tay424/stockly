@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { authClient } from "@/lib/auth-client";
 import { destinationFor } from "@/lib/destination";
 
-import { completeFirstPasswordChangeAction } from "./actions";
+import { clearMustChangePasswordAction } from "./actions";
 
 export function ChangePasswordForm({ name }) {
   const router = useRouter();
@@ -24,11 +25,41 @@ export function ChangePasswordForm({ name }) {
 
   async function onSubmit(event) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const currentPassword = String(form.get("currentPassword") ?? "");
+    const newPassword = String(form.get("newPassword") ?? "");
+    const confirmPassword = String(form.get("confirmPassword") ?? "");
+
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    if (newPassword === currentPassword) {
+      toast.error("Choose a password different from the temporary one.");
+      return;
+    }
+
     setPending(true);
 
-    const formData = new FormData(event.currentTarget);
-    const result = await completeFirstPasswordChangeAction(formData);
+    // Client-side so Better Auth can rotate the session cookie when
+    // revokeOtherSessions creates a fresh session.
+    const { error } = await authClient.changePassword({
+      currentPassword,
+      newPassword,
+      revokeOtherSessions: true,
+    });
 
+    if (error) {
+      setPending(false);
+      toast.error(error.message ?? "Temporary password is incorrect.");
+      return;
+    }
+
+    const result = await clearMustChangePasswordAction();
     setPending(false);
 
     if (result.error) {

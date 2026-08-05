@@ -61,7 +61,7 @@ export async function createUserAction(formData) {
         email: fields.email,
         password: temporaryPassword,
         role: "user",
-        data: { mustChangePassword: true },
+        data: { mustChangePassword: true, emailVerified: true },
       },
       headers: await headers(),
     });

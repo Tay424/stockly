@@ -182,7 +182,12 @@ export function CategoriesTable({ initialCategories }) {
             <DialogTitle>{editing?.id ? "Edit category" : "New category"}</DialogTitle>
             <DialogDescription>A name and a short description.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="grid gap-4">
+          {/* Remount when switching create/edit so uncontrolled defaultValues stay in sync. */}
+          <form
+            key={editing?.id ?? "new"}
+            onSubmit={onSubmit}
+            className="grid gap-4"
+          >
             <div className="grid gap-2">
               <Label htmlFor="category-name">Name</Label>
               <Input
