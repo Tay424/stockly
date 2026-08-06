@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
-import { findProductById, listSalesBySeller, listSellableProducts, recordSale } from "@/lib/catalog";
+import {
+  findProductById,
+  listSalesBySeller,
+  listSellableProducts,
+  recordSale,
+  requestSaleVoid,
+} from "@/lib/catalog";
 import { isDiscountActive, isWholesale, lineTotal, unitPriceFor } from "@/lib/pricing";
 import { requireUser } from "@/lib/session";
 
@@ -53,5 +59,22 @@ export async function recordSaleAction(productId, quantity) {
   revalidatePath("/dashboard/sales");
   revalidatePath("/admin/sales");
   revalidatePath("/admin/products");
+  revalidatePath("/admin/integrity");
   return { stockLeft };
+}
+
+export async function requestVoidAction(saleId, reason) {
+  const { user } = await requireUser();
+  const { ok, reason: error } = await requestSaleVoid({
+    saleId,
+    userId: user.id,
+    userName: user.name,
+    reason,
+  });
+  if (!ok) return { error };
+
+  revalidatePath("/dashboard/sales");
+  revalidatePath("/admin/sales");
+  revalidatePath("/admin/integrity");
+  return {};
 }

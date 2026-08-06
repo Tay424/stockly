@@ -1,11 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { StatusPill } from "@/components/status-pill";
 import { TableEmptyRow, TableToolbar } from "@/components/table-toolbar";
 import { TablePagination } from "@/components/table-pagination";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,26 +32,58 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useTablePagination } from "@/hooks/use-table-pagination";
 import { formatMoney } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
+import { SALE_STATUS, isSameLocalDay } from "@/lib/stock-ledger";
 import { filterByQuery, filterTriggerClassName } from "@/lib/table-filter";
 
-import { fetchAllMySalesAction } from "./actions";
+import { fetchAllMySalesAction, requestVoidAction } from "./actions";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
+const STATUS_TONE = {
+  [SALE_STATUS.recorded]: "muted",
+  [SALE_STATUS.voidRequested]: "warning",
+  [SALE_STATUS.voided]: "danger",
+};
+
+const STATUS_LABEL = {
+  [SALE_STATUS.recorded]: "Recorded",
+  [SALE_STATUS.voidRequested]: "Void requested",
+  [SALE_STATUS.voided]: "Voided",
+};
+
 export function MySalesTable({ initialSales }) {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState("all");
+  const [voidTarget, setVoidTarget] = useState(null);
+  const [voidReason, setVoidReason] = useState("");
 
   const { data: sales } = useQuery({
     queryKey: queryKeys.mySales,
     queryFn: fetchAllMySalesAction,
     initialData: initialSales,
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: ({ saleId, reason }) => requestVoidAction(saleId, reason),
+    onSuccess: async (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: queryKeys.mySales });
+      toast.success("Void requested — an admin will review it.");
+      setVoidTarget(null);
+      setVoidReason("");
+    },
+    onError: () => toast.error("Something went wrong. Try again."),
   });
 
   const filtered = useMemo(() => {
@@ -55,9 +98,20 @@ export function MySalesTable({ initialSales }) {
     useTablePagination(filtered);
 
   const revenue = useMemo(
-    () => filtered.reduce((sum, sale) => sum + (sale.totalCents ?? 0), 0),
+    () =>
+      filtered
+        .filter((sale) => sale.status !== SALE_STATUS.voided)
+        .reduce((sum, sale) => sum + (sale.totalCents ?? 0), 0),
     [filtered],
   );
+
+  function canRequestVoid(sale) {
+    return (
+      sale.status === SALE_STATUS.recorded &&
+      sale.createdAt &&
+      isSameLocalDay(new Date(sale.createdAt))
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -106,13 +160,15 @@ export function MySalesTable({ initialSales }) {
               <TableHead className="text-right">Unit price</TableHead>
               <TableHead>Price used</TableHead>
               <TableHead className="text-right">Total</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>When</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableEmptyRow
-                colSpan={6}
+                colSpan={8}
                 message={
                   search || tierFilter !== "all"
                     ? "No sales match your filters."
@@ -140,8 +196,31 @@ export function MySalesTable({ initialSales }) {
                   <TableCell className="text-right font-medium tabular-nums">
                     {formatMoney(sale.totalCents)}
                   </TableCell>
+                  <TableCell>
+                    <StatusPill tone={STATUS_TONE[sale.status] ?? "muted"}>
+                      {STATUS_LABEL[sale.status] ?? sale.status}
+                    </StatusPill>
+                  </TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {sale.createdAt ? dateFormatter.format(new Date(sale.createdAt)) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {canRequestVoid(sale) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setVoidReason("");
+                          setVoidTarget(sale);
+                        }}
+                      >
+                        Request void
+                      </Button>
+                    ) : sale.status === SALE_STATUS.voidRequested ? (
+                      <span className="text-xs text-muted-foreground">Awaiting admin</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -157,6 +236,67 @@ export function MySalesTable({ initialSales }) {
         totalPages={totalPages}
         onPageChange={setPage}
       />
+
+      <Dialog
+        open={voidTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVoidTarget(null);
+            setVoidReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request void</DialogTitle>
+            <DialogDescription>
+              Same-day sales only. An admin must approve before stock is restored — you cannot
+              edit sales yourself.
+            </DialogDescription>
+          </DialogHeader>
+          {voidTarget ? (
+            <div className="grid gap-4">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{voidTarget.productName}</span>
+                {" · "}
+                {voidTarget.quantity} × {formatMoney(voidTarget.unitPriceCents)} ={" "}
+                {formatMoney(voidTarget.totalCents)}
+              </p>
+              <div className="grid gap-2">
+                <Label htmlFor="void-reason">Reason</Label>
+                <Textarea
+                  id="void-reason"
+                  rows={3}
+                  value={voidReason}
+                  onChange={(event) => setVoidReason(event.target.value)}
+                  placeholder="Why should this sale be voided?"
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setVoidTarget(null);
+                    setVoidReason("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={voidMutation.isPending || !voidReason.trim()}
+                  onClick={() =>
+                    voidMutation.mutate({ saleId: voidTarget.id, reason: voidReason.trim() })
+                  }
+                >
+                  {voidMutation.isPending ? "Submitting…" : "Submit request"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ClipboardCheckIcon,
   LayersIcon,
   LayoutDashboardIcon,
   PackageIcon,
@@ -34,6 +35,7 @@ const NAV_ICONS = {
   "/admin/products": PackageIcon,
   "/admin/categories": LayersIcon,
   "/admin/sales": ReceiptTextIcon,
+  "/admin/integrity": ClipboardCheckIcon,
   "/admin/expenses": WalletIcon,
   "/admin/accounts": ScaleIcon,
   "/dashboard": ShoppingCartIcon,
