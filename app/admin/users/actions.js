@@ -136,3 +136,45 @@ export async function removeUserAction(userId) {
     return { error: errorMessage(err, "Could not delete the user.") };
   }
 }
+
+const ALLOWED_ROLES = new Set(["admin", "user"]);
+
+/**
+ * Assign admin or attendant role to an existing user.
+ * Admins cannot change their own role (avoids locking themselves out).
+ */
+export async function setUserRoleAction(userId, role) {
+  await requireAdmin();
+
+  const id = String(userId ?? "").trim();
+  const nextRole = String(role ?? "").trim();
+  if (!id) return { error: "User is required." };
+  if (!ALLOWED_ROLES.has(nextRole)) {
+    return { error: "Role must be admin or attendant." };
+  }
+
+  const session = await requireAdmin();
+  if (session.user.id === id) {
+    return { error: "You cannot change your own role." };
+  }
+
+  try {
+    await auth.api.setRole({
+      body: { userId: id, role: nextRole },
+      headers: await headers(),
+    });
+
+    // Demoting an admin: end their sessions so the old role stops applying.
+    if (nextRole === "user") {
+      await auth.api.revokeUserSessions({
+        body: { userId: id },
+        headers: await headers(),
+      });
+    }
+
+    revalidatePath("/admin/users");
+    return {};
+  } catch (err) {
+    return { error: errorMessage(err, "Could not update the role.") };
+  }
+}

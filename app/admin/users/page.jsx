@@ -21,7 +21,7 @@ export default async function UsersPage() {
     <>
       <PageHeader
         title="Users"
-        description="Create attendant accounts, generate a temporary password, and hand it to them. They set their own password on first sign-in."
+        description="Create attendants, assign admin or attendant roles, and hand over temporary passwords. They set their own password on first sign-in."
       />
       <UsersTable initialUsers={result.users ?? []} />
     </>
