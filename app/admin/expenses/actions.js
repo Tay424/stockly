@@ -48,6 +48,18 @@ export async function fetchPendingExpensesAction() {
   return listPendingExpenses();
 }
 
+function receiptFields(receipt) {
+  if (!receipt) return {};
+  return {
+    receiptUrl: receipt.url,
+    receiptThumbUrl: receipt.thumbUrl ?? receipt.url,
+    receiptKey: receipt.key,
+    receiptThumbKey: receipt.thumbKey ?? null,
+    receiptMime: receipt.mime,
+    receiptName: receipt.name,
+  };
+}
+
 /** Admin direct expense — auto-approved; receipt optional. */
 export async function saveAdminExpenseAction(id, formData) {
   const { user } = await requireAdmin();
@@ -68,13 +80,7 @@ export async function saveAdminExpenseAction(id, formData) {
     if (existing.status !== EXPENSE_STATUS.approved) {
       return { error: "Use Approve / Request changes for applications." };
     }
-    const patch = { ...fields };
-    if (receipt) {
-      patch.receiptUrl = receipt.url;
-      patch.receiptKey = receipt.key;
-      patch.receiptMime = receipt.mime;
-      patch.receiptName = receipt.name;
-    }
+    const patch = { ...fields, ...receiptFields(receipt) };
     const result = await updateExpenseApplication(id, patch, {
       allowStatuses: [EXPENSE_STATUS.approved],
     });
@@ -87,14 +93,7 @@ export async function saveAdminExpenseAction(id, formData) {
       recordedByName: user.name,
       reviewedBy: user.id,
       reviewedByName: user.name,
-      ...(receipt
-        ? {
-            receiptUrl: receipt.url,
-            receiptKey: receipt.key,
-            receiptMime: receipt.mime,
-            receiptName: receipt.name,
-          }
-        : {}),
+      ...receiptFields(receipt),
     });
   }
 
