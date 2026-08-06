@@ -1,0 +1,338 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckIcon, CopyIcon, KeyRoundIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
+
+import { TableEmptyRow, TableToolbar } from "@/components/table-toolbar";
+import { TablePagination } from "@/components/table-pagination";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useTablePagination } from "@/hooks/use-table-pagination";
+import { queryKeys } from "@/lib/query-keys";
+import { filterByQuery } from "@/lib/table-filter";
+import { useSession } from "@/lib/auth-client";
+
+import {
+  createUserAction,
+  fetchUsersAction,
+  removeUserAction,
+  resetUserPasswordAction,
+} from "./actions";
+
+function CopyPasswordButton({ password }) {
+  const [copied, setCopied] = useState(false);
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      toast.success("Password copied.");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy — select and copy it manually.");
+    }
+  }
+
+  return (
+    <Button type="button" variant="outline" onClick={onCopy}>
+      {copied ? <CheckIcon /> : <CopyIcon />}
+      {copied ? "Copied" : "Copy password"}
+    </Button>
+  );
+}
+
+function IssuedPasswordDialog({ issued, onClose }) {
+  if (!issued) return null;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {issued.kind === "reset" ? "Temporary password reset" : "Attendant created"}
+          </DialogTitle>
+          <DialogDescription>
+            Share this password with {issued.name || issued.email} now. It will not be shown
+            again. They must change it the first time they sign in.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label>Email</Label>
+            <Input readOnly value={issued.email} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Temporary password</Label>
+            <Input readOnly value={issued.password} className="font-mono tracking-wide" />
+          </div>
+        </div>
+        <DialogFooter>
+          <CopyPasswordButton password={issued.password} />
+          <Button type="button" onClick={onClose}>
+            Done
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function UsersTable({ initialUsers }) {
+  const queryClient = useQueryClient();
+  const { data: sessionData } = useSession();
+  const currentUserId = sessionData?.user?.id;
+
+  const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [issued, setIssued] = useState(null);
+
+  const { data: users } = useQuery({
+    queryKey: queryKeys.users,
+    queryFn: fetchUsersAction,
+    initialData: initialUsers,
+  });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.users });
+
+  const createMutation = useMutation({
+    mutationFn: (formData) => createUserAction(formData),
+    onSuccess: async (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      await refresh();
+      setCreating(false);
+      setIssued({
+        kind: "create",
+        name: res.user?.name,
+        email: res.user?.email,
+        password: res.temporaryPassword,
+      });
+    },
+    onError: () => toast.error("Something went wrong. Try again."),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: ({ id }) => resetUserPasswordAction(id),
+    onSettled: () => setBusyId(null),
+    onSuccess: async (res, { user }) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      await refresh();
+      setIssued({
+        kind: "reset",
+        name: user.name,
+        email: user.email,
+        password: res.temporaryPassword,
+      });
+    },
+    onError: () => toast.error("Something went wrong. Try again."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => removeUserAction(id),
+    onSettled: () => setBusyId(null),
+    onSuccess: async (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      await refresh();
+      toast.success("User deleted.");
+    },
+    onError: () => toast.error("Something went wrong. Try again."),
+  });
+
+  const filtered = useMemo(
+    () =>
+      filterByQuery(users, search, (u) => `${u.name} ${u.email} ${u.role ?? ""}`),
+    [users, search],
+  );
+  const { page, paginated, setPage, totalItems, totalPages, pageSize } =
+    useTablePagination(filtered);
+
+  function onCreate(event) {
+    event.preventDefault();
+    createMutation.mutate(new FormData(event.currentTarget));
+  }
+
+  function onReset(user) {
+    if (
+      !window.confirm(
+        `Reset the password for ${user.name}? Their current sessions will be signed out.`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(user.id);
+    resetMutation.mutate({ id: user.id, user });
+  }
+
+  function onDelete(user) {
+    if (!window.confirm(`Delete ${user.name} (${user.email})? This cannot be undone.`)) {
+      return;
+    }
+    setBusyId(user.id);
+    deleteMutation.mutate(user.id);
+  }
+
+  return (
+    <>
+      <div className="mb-4 flex justify-end">
+        <Button onClick={() => setCreating(true)}>
+          <PlusIcon />
+          New attendant
+        </Button>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <TableToolbar
+          search={search}
+          searchPlaceholder="Search users…"
+          onSearchChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+        />
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableEmptyRow
+                  colSpan={5}
+                  message={search ? "No users match your search." : "No users yet."}
+                />
+              ) : (
+                paginated.map((user) => {
+                  const isSelf = user.id === currentUserId;
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium text-foreground">{user.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                          {user.role === "admin" ? "Admin" : "Attendant"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {user.mustChangePassword ? (
+                          <Badge variant="outline">Must change password</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">Active</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {user.role === "admin" || isSelf ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Reset password for ${user.name}`}
+                              disabled={busyId === user.id}
+                              onClick={() => onReset(user)}
+                            >
+                              <KeyRoundIcon className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${user.name}`}
+                              disabled={busyId === user.id}
+                              onClick={() => onDelete(user)}
+                            >
+                              <Trash2Icon className="size-4 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      </div>
+
+      <Dialog open={creating} onOpenChange={(open) => !open && setCreating(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New attendant</DialogTitle>
+            <DialogDescription>
+              A temporary password is generated for you to share. They will set their own
+              password the first time they sign in.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onCreate} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="user-name">Name</Label>
+              <Input id="user-name" name="name" required autoComplete="off" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="user-email">Email</Label>
+              <Input
+                id="user-email"
+                name="email"
+                type="email"
+                required
+                autoComplete="off"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreating(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Creating…" : "Create & generate password"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <IssuedPasswordDialog issued={issued} onClose={() => setIssued(null)} />
+    </>
+  );
+}

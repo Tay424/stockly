@@ -310,7 +310,12 @@ export function ProductsTable({ initialCategories, initialProducts }) {
               active discount comes off.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="grid gap-4">
+          {/* Remount when switching create/edit/product so uncontrolled defaultValues stay in sync. */}
+          <form
+            key={editing?.id ?? "new"}
+            onSubmit={onSubmit}
+            className="grid gap-4"
+          >
             <div className="grid gap-2">
               <Label htmlFor="product-name">Name</Label>
               <Input id="product-name" name="name" defaultValue={editing?.name ?? ""} required />

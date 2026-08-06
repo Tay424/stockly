@@ -14,8 +14,9 @@ A simple stock management system with two roles:
 ## Auth
 
 - Use [Better Auth](https://better-auth.com).
-- The admin account is created via a script.
-- Users are created by the admin, who then sends them their email and password directly.
+- The admin account is created via a script (`pnpm create-admin`).
+- Admins create attendant accounts from **Users** (`/admin/users`). The app generates a temporary password for the admin to share. On first sign-in the attendant is forced to `/change-password` to pick their own password before reaching the dashboard.
+- Public sign-up is disabled.
 
 ## UI
 
