@@ -519,8 +519,12 @@ export function AdminExpensesTable({ initialExpenses }) {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={detail.receiptUrl}
+                    src={detail.receiptThumbUrl || detail.receiptUrl}
                     alt="Receipt"
+                    width={480}
+                    height={480}
+                    loading="lazy"
+                    decoding="async"
                     className="max-h-64 w-full object-contain bg-secondary/40"
                   />
                   <span className="block px-3 py-2 text-xs text-muted-foreground">
@@ -579,6 +583,8 @@ export function AdminExpensesTable({ initialExpenses }) {
             <img
               src={zoomUrl}
               alt="Receipt zoom"
+              loading="eager"
+              decoding="async"
               className="max-h-[85svh] w-full rounded-lg object-contain"
             />
           ) : null}

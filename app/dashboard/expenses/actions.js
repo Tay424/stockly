@@ -63,7 +63,9 @@ export async function saveMyExpenseAction(id, formData) {
       if (!stored.ok) return { error: stored.reason };
       receiptPatch = {
         receiptUrl: stored.receipt.url,
+        receiptThumbUrl: stored.receipt.thumbUrl ?? stored.receipt.url,
         receiptKey: stored.receipt.key,
+        receiptThumbKey: stored.receipt.thumbKey ?? null,
         receiptMime: stored.receipt.mime,
         receiptName: stored.receipt.name,
       };
@@ -91,7 +93,9 @@ export async function saveMyExpenseAction(id, formData) {
       recordedBy: user.id,
       recordedByName: user.name,
       receiptUrl: stored.receipt.url,
+      receiptThumbUrl: stored.receipt.thumbUrl ?? stored.receipt.url,
       receiptKey: stored.receipt.key,
+      receiptThumbKey: stored.receipt.thumbKey ?? null,
       receiptMime: stored.receipt.mime,
       receiptName: stored.receipt.name,
     });
