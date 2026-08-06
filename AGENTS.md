@@ -41,7 +41,7 @@ A simple stock management system with two roles:
 | **1a** | Done (branch `cursor/phase-1a-sell-on-sales-95a3`) | Sell on Sales; speed-tuned form; hide out-of-stock; Dashboard = overview |
 | **1b** | Done (branch `cursor/phase-1b-stock-ledger-voids-8fd8`) | Stock movement ledger; void request → admin execute; Today integrity view |
 | **1c** | Done (branch `cursor/phase-1c-dashboard-charts-8fd8`) | Charts: attendant = me; admin = shop + per person |
-| **2** | **Next** | Expense apply → approve / send-back; receipt; pending out of totals; in-app + email |
+| **2** | Done (branch `cursor/phase-2-expense-applications-8fd8`) | Expense apply → approve / send-back; receipt; pending out of totals; in-app + email stub |
 
 ### Phase 1a — Sell on Sales (done)
 
@@ -66,17 +66,17 @@ A simple stock management system with two roles:
 - **Admin:** shop totals today (hourly) + per-attendant breakdown; Integrity link stays primary.
 - Integrity/discrepancy view from 1b stays primary; trend charts are secondary.
 
-### Phase 2 — Expense applications + receipts
+### Phase 2 — Expense applications + receipts (done)
 
 - Attendants **apply** (status `pending`); admins may log expenses **direct = auto-approved** (rent, suppliers).
 - Statuses: `pending` → `changes_requested` (attendant edits & resubmits same record) → `approved`.
 - Attendant **cannot** edit while `pending`; can edit only when `changes_requested`; `approved` is frozen.
 - Pending: visible in pending queue + filterable on Expenses list; **never** in monthly accounts/profit until `approved`.
 - Admin UX: pending queue + Expenses table status filter; detail with **receipt zoom**; Approve or Request changes (+ reason).
-- Receipt: **required** for attendant apps; one image JPEG/PNG/WebP (phone OK); PDF later. Use UploadThing (`UPLOADTHING_TOKEN`).
-- Categories: **fixed list** + optional notes (e.g. Transport, Stock purchase, Utilities, Packaging, Misc — exact list at implement time).
-- Notifications: in-app status badges **+ email** on approved / changes requested. Email stays in Phase 2; in-app still ships if mail provider secrets aren’t ready yet.
-- **Legacy:** one-time migrate existing expenses → `approved` (no receipt required for legacy).
+- Receipt: **required** for attendant apps; one image JPEG/PNG/WebP (phone OK); PDF later. UploadThing when `UPLOADTHING_TOKEN` is set; local `public/receipts` fallback otherwise.
+- Categories: fixed list — Transport, Stock purchase, Utilities, Packaging, Misc + optional notes.
+- Notifications: in-app status badges **+ email stub** (logs when SMTP isn’t configured).
+- **Legacy:** `pnpm migrate-expenses` promotes existing expenses → `approved`.
 
 ### Decided rules (quick reference)
 
@@ -107,4 +107,4 @@ A simple stock management system with two roles:
 
 ### Continue here
 
-Next implementation chat should: merge Phase 1 (1a→1b→1c), then implement **Phase 2 only** (expense applications + receipts). Do not start Phase 2 charts/integrity rework.
+Phase 1 + 2 on the frozen roadmap are implemented on stacked branches. Merge order: **1a → 1b → 1c → 2** into `main`. Out-of-scope items above remain later.

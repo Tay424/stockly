@@ -23,6 +23,7 @@ import {
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -67,7 +68,7 @@ function SidebarCollapseTrigger({ className }) {
   );
 }
 
-export function AppSidebar({ role }) {
+export function AppSidebar({ role, badges = {} }) {
   const pathname = usePathname();
   const items = NAV[role] ?? [];
 
@@ -96,6 +97,7 @@ export function AppSidebar({ role }) {
           <SidebarMenu>
             {items.map((item) => {
               const Icon = NAV_ICONS[item.href];
+              const badge = badges[item.href];
               return (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
@@ -106,6 +108,7 @@ export function AppSidebar({ role }) {
                     <Icon />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
+                  {badge ? <SidebarMenuBadge>{badge}</SidebarMenuBadge> : null}
                 </SidebarMenuItem>
               );
             })}
@@ -115,7 +118,9 @@ export function AppSidebar({ role }) {
 
       <SidebarFooter className="mt-auto border-t border-sidebar-border p-0">
         <div className="flex items-center justify-between px-3 py-2 group-data-[collapsible=icon]:justify-center">
-          <span className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">v0.1</span>
+          <span className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+            v0.1
+          </span>
           <SidebarCollapseTrigger className="hidden md:inline-flex" />
         </div>
       </SidebarFooter>
