@@ -29,7 +29,7 @@ export function DistributorsTable({ initialDistributors }) {
   const [search, setSearch] = useState("");
 
   const { data: distributors } = useQuery({
-    queryKey: queryKeys.distributors,
+    queryKey: queryKeys.distributorPerformance,
     queryFn: fetchDistributorPerformanceAction,
     initialData: initialDistributors,
   });

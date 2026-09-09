@@ -150,6 +150,8 @@ export function SellForm({ initialProducts }) {
         queryClient.invalidateQueries({ queryKey: queryKeys.sellableProducts }),
         queryClient.invalidateQueries({ queryKey: queryKeys.mySales }),
         queryClient.invalidateQueries({ queryKey: queryKeys.distributors }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.distributorPerformance }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sales }),
       ]);
       router.refresh();
       toast.success(
