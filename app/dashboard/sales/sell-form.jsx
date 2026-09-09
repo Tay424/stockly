@@ -16,10 +16,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { formatMoney, priceReceipt } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
 
-import { fetchSellableProductsAction, recordSaleReceiptAction } from "./actions";
+import {
+  fetchDistributorsAction,
+  fetchSellableProductsAction,
+  recordSaleReceiptAction,
+} from "./actions";
 
 export function SellForm({ initialProducts }) {
   const queryClient = useQueryClient();
@@ -27,12 +33,30 @@ export function SellForm({ initialProducts }) {
   const [open, setOpen] = useState(false);
   // cart: [{ productId, quantity }]
   const [cart, setCart] = useState([]);
+  const [clientOpen, setClientOpen] = useState(false);
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [lastSaleId, setLastSaleId] = useState(null);
 
   const { data: products } = useQuery({
     queryKey: queryKeys.sellableProducts,
     queryFn: fetchSellableProductsAction,
     initialData: initialProducts,
   });
+
+  const { data: distributors = [] } = useQuery({
+    queryKey: queryKeys.distributors,
+    queryFn: fetchDistributorsAction,
+    enabled: clientOpen,
+  });
+
+  const filteredDistributors = useMemo(() => {
+    const q = clientPhone.replace(/\D/g, "");
+    if (q.length < 3) return distributors.slice(0, 8);
+    return distributors
+      .filter((d) => String(d.phone ?? "").includes(q) || (d.name ?? "").toLowerCase().includes(clientName.toLowerCase()))
+      .slice(0, 8);
+  }, [distributors, clientPhone, clientName]);
 
   const productsById = useMemo(() => {
     const map = new Map();
@@ -115,7 +139,7 @@ export function SellForm({ initialProducts }) {
   }
 
   const saleMutation = useMutation({
-    mutationFn: () => recordSaleReceiptAction(cart),
+    mutationFn: (client) => recordSaleReceiptAction(cart, client),
     onSuccess: async (res) => {
       if (res.error) {
         toast.error(res.error);
@@ -125,13 +149,28 @@ export function SellForm({ initialProducts }) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.sellableProducts }),
         queryClient.invalidateQueries({ queryKey: queryKeys.mySales }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.distributors }),
       ]);
       router.refresh();
       toast.success(
         `Sale recorded — ${formatMoney(res.totalCents)}${res.wholesale ? " (includes wholesale pack)" : ""}.`,
+        {
+          action: res.saleId
+            ? {
+                label: "Open invoice",
+                onClick: () => {
+                  window.open(`/dashboard/sales/${res.saleId}/invoice`, "_blank", "noopener,noreferrer");
+                },
+              }
+            : undefined,
+          duration: 8000,
+        },
       );
       setCart([]);
-      // Keep the receipt open for the next customer.
+      setClientOpen(false);
+      setClientName("");
+      setClientPhone("");
+      setLastSaleId(res.saleId ?? null);
     },
     onError: () => toast.error("Could not record that sale. Try again."),
   });
@@ -141,7 +180,30 @@ export function SellForm({ initialProducts }) {
       toast.error("Add at least one product to the receipt.");
       return;
     }
-    saleMutation.mutate();
+    if (preview?.wholesale) {
+      setClientOpen(true);
+      return;
+    }
+    saleMutation.mutate(null);
+  }
+
+  function onClientContinue() {
+    const name = clientName.trim();
+    const phone = clientPhone.trim();
+    if (!name) {
+      toast.error("Client name is required for wholesale packs.");
+      return;
+    }
+    if (!phone) {
+      toast.error("Client phone is required for wholesale packs.");
+      return;
+    }
+    saleMutation.mutate({ name, phone });
+  }
+
+  function pickDistributor(d) {
+    setClientName(d.name ?? "");
+    setClientPhone(d.phone ?? "");
   }
 
   return (
@@ -217,6 +279,22 @@ export function SellForm({ initialProducts }) {
                 <p className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   This sale
                 </p>
+
+                {lastSaleId ? (
+                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
+                    <span className="text-muted-foreground">Last sale ready to share.</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      render={<a href={`/dashboard/sales/${lastSaleId}/invoice`} target="_blank" rel="noreferrer" />}
+                    >
+                      Open invoice
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setLastSaleId(null)}>
+                      Dismiss
+                    </Button>
+                  </div>
+                ) : null}
 
                 {cart.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -372,6 +450,70 @@ export function SellForm({ initialProducts }) {
               </DialogFooter>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={clientOpen} onOpenChange={setClientOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Wholesale client</DialogTitle>
+            <DialogDescription>
+              This receipt includes a wholesale pack. Capture the client for your distributor
+              network — required before confirming.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="client-name">Name</Label>
+              <Input
+                id="client-name"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Distributor name"
+                autoComplete="name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="client-phone">Phone</Label>
+              <Input
+                id="client-phone"
+                value={clientPhone}
+                onChange={(e) => setClientPhone(e.target.value)}
+                placeholder="e.g. +263…"
+                autoComplete="tel"
+              />
+            </div>
+            {filteredDistributors.length > 0 ? (
+              <div className="grid gap-1">
+                <p className="text-xs text-muted-foreground">Existing distributors</p>
+                <div className="max-h-36 overflow-y-auto rounded-lg border border-border">
+                  {filteredDistributors.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted"
+                      onClick={() => pickDistributor(d)}
+                    >
+                      <span className="truncate font-medium">{d.name}</span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">{d.phone}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setClientOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={saleMutation.isPending}
+              onClick={onClientContinue}
+            >
+              {saleMutation.isPending ? "Recording…" : "Confirm sale"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
