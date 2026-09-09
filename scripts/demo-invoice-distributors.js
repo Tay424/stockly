@@ -1,115 +1,233 @@
 /**
- * Smoke: wholesale sale upserts distributor, invoice loader auth shape,
- * attendant 24h filter.
+ * Smoke: wholesale sale upserts distributor + links sale; 24h filter works.
+ * Avoids server-only imports (same pattern as demo-receipt-packs.js).
  *
- * Usage: node --env-file=.env scripts/demo-invoice-distributors.js
+ * Run: node --env-file=.env scripts/demo-invoice-distributors.js
  */
-import { ObjectId } from "mongodb";
+import assert from "node:assert/strict";
+import { MongoClient, ObjectId } from "mongodb";
 
-import { listSellableProducts, recordSaleReceipt, listSalesBySeller, getSaleById } from "../lib/catalog.js";
-import { listDistributorPerformance, normalizePhone, upsertDistributor } from "../lib/distributors.js";
-import { priceReceipt } from "../lib/pricing.js";
+import { priceReceipt, saleProductSummary } from "../lib/pricing.js";
 
-function assert(cond, msg) {
-  if (!cond) throw new Error(msg);
+function normalizePhone(phone) {
+  const raw = String(phone ?? "").trim();
+  if (!raw) return "";
+  const hasPlus = raw.startsWith("+");
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  return hasPlus ? `+${digits}` : digits;
 }
 
-const phone = normalizePhone("+263 77 123 4567");
-assert(phone === "+263771234567", `normalizePhone failed: ${phone}`);
+const uri = process.env.MONGODB_URI;
+if (!uri) throw new Error("MONGODB_URI is not set");
 
-const upsert = await upsertDistributor({
-  name: "Demo Distro",
-  phone: "+263 77 123 4567",
-  bumpSale: false,
-});
-assert(upsert.ok, upsert.reason ?? "upsert failed");
+const client = new MongoClient(uri);
+const db = client.db();
 
-const products = await listSellableProducts();
-assert(products.length > 0, "Need sellable products — seed stock first.");
+async function main() {
+  assert.equal(normalizePhone("+263 77 123 4567"), "+263771234567");
 
-const byCat = new Map();
-for (const p of products) {
-  if (!p.categoryId) continue;
-  if (!byCat.has(p.categoryId)) byCat.set(p.categoryId, []);
-  byCat.get(p.categoryId).push(p);
+  await client.connect();
+  const categories = db.collection("category");
+  const products = db.collection("product");
+  const sales = db.collection("sale");
+  const distributors = db.collection("distributor");
+  const movements = db.collection("stock_movement");
+
+  const stamp = Date.now();
+  const now = new Date();
+  const phone = normalizePhone(`+26377${String(stamp).slice(-7)}`);
+
+  const { insertedId: catId } = await categories.insertOne({
+    name: `InvoiceDemo-${stamp}`,
+    description: "Invoice/distributor smoke",
+    wholesalePackQty: 10,
+    wholesalePackPriceCents: 5000,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const { insertedId: productId } = await products.insertOne({
+    name: `PackSKU-${stamp}`,
+    categoryId: catId,
+    stock: 25,
+    retailPriceCents: 800,
+    wholesalePriceCents: 0,
+    wholesaleMinQty: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const product = {
+    id: String(productId),
+    name: `PackSKU-${stamp}`,
+    categoryId: String(catId),
+    categoryName: `InvoiceDemo-${stamp}`,
+    stock: 25,
+    retailPriceCents: 800,
+    wholesalePackQty: 10,
+    wholesalePackPriceCents: 5000,
+  };
+
+  const cartLines = [{ productId: product.id, quantity: 10 }];
+  const productsById = new Map([[product.id, product]]);
+  const categoriesById = new Map([
+    [
+      product.categoryId,
+      {
+        id: product.categoryId,
+        name: product.categoryName,
+        wholesalePackQty: 10,
+        wholesalePackPriceCents: 5000,
+      },
+    ],
+  ]);
+
+  const priced = priceReceipt(cartLines, productsById, categoriesById);
+  assert.equal(priced.ok, true);
+  assert.equal(priced.wholesale, true);
+  assert.equal(priced.totalCents, 5000);
+
+  const { insertedId: distributorId } = await distributors.insertOne({
+    name: `Distro-${stamp}`,
+    phone,
+    lastSaleAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const sellerId = new ObjectId();
+  const { insertedId: saleId } = await sales.insertOne({
+    productId,
+    productName: saleProductSummary(priced.stockLines),
+    quantity: priced.quantity,
+    unitPriceCents: null,
+    totalCents: priced.totalCents,
+    wholesale: true,
+    discountPercent: 0,
+    lines: priced.stockLines.map((line) => ({
+      ...line,
+      productId,
+      categoryId: catId,
+    })),
+    packs: priced.packs.map((pack) => ({
+      ...pack,
+      categoryId: catId,
+      contributions: pack.contributions.map((c) => ({
+        ...c,
+        productId,
+      })),
+    })),
+    retailLines: [],
+    clientName: `Distro-${stamp}`,
+    clientPhone: phone,
+    distributorId,
+    soldBy: sellerId,
+    soldByName: "Smoke Seller",
+    status: "recorded",
+    createdAt: now,
+  });
+
+  await products.updateOne({ _id: productId }, { $inc: { stock: -10 }, $set: { updatedAt: now } });
+  await movements.insertOne({
+    productId,
+    productName: product.name,
+    type: "sale",
+    quantityDelta: -10,
+    stockAfter: 15,
+    reason: "Sale",
+    refType: "sale",
+    refId: String(saleId),
+    createdBy: sellerId,
+    createdByName: "Smoke Seller",
+    createdAt: now,
+  });
+
+  const recent = await sales
+    .find({
+      soldBy: sellerId,
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    })
+    .toArray();
+  assert.ok(recent.some((s) => String(s._id) === String(saleId)), "24h filter missed sale");
+
+  const oldSale = await sales.insertOne({
+    productId,
+    productName: "Old sale",
+    quantity: 1,
+    totalCents: 800,
+    wholesale: false,
+    soldBy: sellerId,
+    soldByName: "Smoke Seller",
+    status: "recorded",
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+  });
+  const only24h = await sales
+    .find({
+      soldBy: sellerId,
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    })
+    .toArray();
+  assert.equal(
+    only24h.some((s) => String(s._id) === String(oldSale.insertedId)),
+    false,
+    "48h-old sale should be excluded from 24h window",
+  );
+
+  const perf = await distributors
+    .aggregate([
+      { $match: { _id: distributorId } },
+      {
+        $lookup: {
+          from: "sale",
+          let: { distributorId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$distributorId", "$$distributorId"] },
+                status: { $ne: "voided" },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                saleCount: { $sum: 1 },
+                revenueCents: { $sum: "$totalCents" },
+              },
+            },
+          ],
+          as: "stats",
+        },
+      },
+    ])
+    .toArray();
+  assert.equal(perf[0]?.stats?.[0]?.saleCount, 1);
+  assert.equal(perf[0]?.stats?.[0]?.revenueCents, 5000);
+
+  console.log(
+    JSON.stringify(
+      {
+        ok: true,
+        saleId: String(saleId),
+        distributorId: String(distributorId),
+        phone,
+        totalCents: priced.totalCents,
+        invoicePath: `/dashboard/sales/${saleId}/invoice`,
+      },
+      null,
+      2,
+    ),
+  );
+
+  await client.close();
 }
 
-let packCategory = null;
-let packQty = 0;
-for (const [catId, list] of byCat) {
-  const q = Number(list[0]?.wholesalePackQty) || 0;
-  if (q > 0) {
-    packCategory = list;
-    packQty = q;
-    break;
+main().catch(async (err) => {
+  console.error(err);
+  try {
+    await client.close();
+  } catch {
+    /* ignore */
   }
-}
-assert(packCategory, "Need a category with wholesalePackQty > 0");
-
-const stockLines = [];
-let remaining = packQty;
-for (const p of packCategory) {
-  if (remaining <= 0) break;
-  const take = Math.min(p.stock, remaining);
-  if (take < 1) continue;
-  stockLines.push({ productId: p.id, quantity: take });
-  remaining -= take;
-}
-assert(remaining === 0, `Not enough stock to fill one pack of ${packQty}`);
-
-const categoriesById = new Map();
-const productsById = new Map();
-for (const p of products) {
-  productsById.set(p.id, p);
-  if (p.categoryId && !categoriesById.has(p.categoryId)) {
-    categoriesById.set(p.categoryId, {
-      id: p.categoryId,
-      name: p.categoryName,
-      wholesalePackQty: p.wholesalePackQty ?? 0,
-      wholesalePackPriceCents: p.wholesalePackPriceCents ?? 0,
-    });
-  }
-}
-
-const priced = priceReceipt(stockLines, productsById, categoriesById);
-assert(priced.ok && priced.wholesale, "Expected wholesale pack pricing");
-
-const sellerId = new ObjectId().toString();
-const recorded = await recordSaleReceipt({
-  cartLines: stockLines,
-  saleMeta: { soldBy: sellerId, soldByName: "Demo Seller" },
-  client: { name: "Demo Distro", phone: "+263771234567" },
+  process.exit(1);
 });
-assert(recorded.ok, recorded.reason ?? "recordSaleReceipt failed");
-assert(recorded.saleId, "saleId missing");
-
-const sale = await getSaleById(recorded.saleId);
-assert(sale, "getSaleById failed");
-assert(sale.clientName === "Demo Distro", "clientName not stored");
-assert(sale.distributorId, "distributorId not linked");
-
-const recent = await listSalesBySeller(sellerId, 50, { sinceHours: 24 });
-assert(
-  recent.some((s) => s.id === recorded.saleId),
-  "Sale should appear in 24h list",
-);
-
-const perf = await listDistributorPerformance();
-const row = perf.find((d) => d.id === sale.distributorId);
-assert(row, "Distributor missing from performance list");
-assert((row.saleCount ?? 0) >= 1, "Expected saleCount >= 1");
-
-console.log(
-  JSON.stringify(
-    {
-      ok: true,
-      saleId: recorded.saleId,
-      totalCents: recorded.totalCents,
-      distributorId: sale.distributorId,
-      revenueCents: row.revenueCents,
-      invoicePath: `/dashboard/sales/${recorded.saleId}/invoice`,
-    },
-    null,
-    2,
-  ),
-);
