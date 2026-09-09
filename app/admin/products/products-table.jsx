@@ -306,8 +306,9 @@ export function ProductsTable({ initialCategories, initialProducts }) {
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit product" : "New product"}</DialogTitle>
             <DialogDescription>
-              Sales use the retail price until the buyer hits the wholesale quantity, then any
-              active discount comes off.
+              Sales receipts use category wholesale packs (set on Categories). Product wholesale
+              min qty / price below are not used on the Sales receipt — leave them for reference
+              or later. Active discounts also do not apply on the receipt (full retail leftovers).
             </DialogDescription>
           </DialogHeader>
           {/* Remount when switching create/edit/product so uncontrolled defaultValues stay in sync. */}

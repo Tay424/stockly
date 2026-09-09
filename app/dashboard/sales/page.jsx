@@ -16,9 +16,9 @@ export default async function MySalesPage() {
     <>
       <PageHeader
         title="Sales"
-        description="Record a sale as it happens — stock updates automatically. Your history is below."
+        description="Open a receipt, add products by category, and confirm — stock updates automatically. Your history is below."
       />
-      <div className="mb-8 max-w-md">
+      <div className="mb-8">
         <SellForm initialProducts={products} />
       </div>
       <MySalesTable initialSales={sales} />

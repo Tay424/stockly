@@ -3,13 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  findProductById,
   listSalesBySeller,
   listSellableProducts,
-  recordSale,
+  recordSaleReceipt,
   requestSaleVoid,
 } from "@/lib/catalog";
-import { isDiscountActive, isWholesale, lineTotal, unitPriceFor } from "@/lib/pricing";
 import { requireUser } from "@/lib/session";
 
 export async function fetchSellableProductsAction() {
@@ -22,32 +20,31 @@ export async function fetchAllMySalesAction() {
   return listSalesBySeller(user.id, 500);
 }
 
-export async function recordSaleAction(productId, quantity) {
+/**
+ * Record a multi-line receipt. Prices and packs are recomputed server-side.
+ * `cartLines`: [{ productId, quantity }]
+ */
+export async function recordSaleReceiptAction(cartLines) {
   const { user } = await requireUser();
 
-  const qty = Number(quantity);
-  if (!Number.isInteger(qty) || qty < 1) {
-    return { error: "Quantity must be a whole number of at least 1." };
+  if (!Array.isArray(cartLines) || cartLines.length === 0) {
+    return { error: "Add at least one product to the receipt." };
   }
 
-  // Price is always recomputed from the stored product — never trust a price
-  // that came from the browser.
-  const product = await findProductById(productId);
-  if (!product) return { error: "Product not found." };
+  const normalized = [];
+  for (const line of cartLines) {
+    const productId = String(line?.productId ?? "").trim();
+    const quantity = Number(line?.quantity);
+    if (!productId) return { error: "Each line needs a product." };
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return { error: "Quantity must be a whole number of at least 1." };
+    }
+    normalized.push({ productId, quantity });
+  }
 
-  const now = new Date();
-  const unitPriceCents = unitPriceFor(product, qty, now);
-
-  const { ok, reason, stockLeft } = await recordSale({
-    productId,
-    quantity: qty,
-    sale: {
-      productName: product.name,
-      quantity: qty,
-      unitPriceCents,
-      totalCents: lineTotal(product, qty, now),
-      wholesale: isWholesale(product, qty),
-      discountPercent: isDiscountActive(product, now) ? product.discountPercent : 0,
+  const { ok, reason, totalCents, quantity, wholesale } = await recordSaleReceipt({
+    cartLines: normalized,
+    saleMeta: {
       soldBy: user.id,
       soldByName: user.name,
     },
@@ -60,7 +57,7 @@ export async function recordSaleAction(productId, quantity) {
   revalidatePath("/admin/sales");
   revalidatePath("/admin/products");
   revalidatePath("/admin/integrity");
-  return { stockLeft };
+  return { totalCents, quantity, wholesale };
 }
 
 export async function requestVoidAction(saleId, reason) {

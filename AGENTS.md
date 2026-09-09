@@ -48,9 +48,10 @@ A simple stock management system with two roles:
 
 - Attendants record sales on `/dashboard/sales` (not Dashboard).
 - Dashboard: stats + link to Sales only (charts placeholder later).
-- One sale at a time as it happens (not end-of-day batch).
-- Speed UX: large controls, qty +/− steppers, keep product selected after success, reset qty to 1.
-- Out-of-stock: hidden from picker (`listSellableProducts` / `stock > 0`); qty > available still hard-blocked server-side.
+- **Receipt cart:** one popout receipt per customer — pick products by category, set qtys, confirm. Replaces the old single-product form.
+- **Category wholesale packs:** on each category, optional `wholesalePackQty` / `wholesalePackPriceCents` (default off). Per category on a receipt: `floor(qty / packQty)` packs at pack price; leftover units full retail (no % discounts on the receipt). Next pack at 40, 60, … Mixed SKUs in the same category can fill one pack. Other categories on the same receipt stay retail (or their own packs).
+- Sellable picker: `stock > 0` **and** product has a category; stock validated on submit (cart kept if it fails).
+- After success: clear cart, keep receipt open for the next customer.
 - Online only (no offline queue).
 
 ### Phase 1b — Integrity + voids (done)
@@ -84,10 +85,11 @@ A simple stock management system with two roles:
 | Topic | Decision |
 |-------|----------|
 | Where to sell | Sales tab; Dashboard = overview |
-| Sale granularity | Per transaction as it happens |
-| Sale edits | No silent edits; void request → admin executes |
+| Sale granularity | Per receipt as it happens (multi-line OK) |
+| Sale pricing | Category packs on receipt; product wholesale fields ignored there |
+| Sale edits | No silent edits; void request → admin executes (whole receipt) |
 | Void window | Attendant same-day; admin any age; one open request/sale |
-| Stock truth | Full movement ledger (sale/void/admin adjust) |
+| Stock truth | Full movement ledger (sale/void/admin adjust); one movement per product line |
 | Charts audience | Both roles; integrity before vanity charts |
 | Chart time default | Today |
 | Expenses create | Attendant apply; admin direct auto-approved |

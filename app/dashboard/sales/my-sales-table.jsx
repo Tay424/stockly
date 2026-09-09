@@ -181,7 +181,7 @@ export function MySalesTable({ initialSales }) {
                   <TableCell className="font-medium text-foreground">{sale.productName}</TableCell>
                   <TableCell className="text-right tabular-nums">{sale.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(sale.unitPriceCents)}
+                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents)}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1.5">
@@ -259,8 +259,11 @@ export function MySalesTable({ initialSales }) {
               <p className="text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{voidTarget.productName}</span>
                 {" · "}
-                {voidTarget.quantity} × {formatMoney(voidTarget.unitPriceCents)} ={" "}
+                {voidTarget.quantity} unit{voidTarget.quantity === 1 ? "" : "s"} ·{" "}
                 {formatMoney(voidTarget.totalCents)}
+                {Array.isArray(voidTarget.lines) && voidTarget.lines.length > 1
+                  ? ` · ${voidTarget.lines.length} lines`
+                  : ""}
               </p>
               <div className="grid gap-2">
                 <Label htmlFor="void-reason">Reason</Label>

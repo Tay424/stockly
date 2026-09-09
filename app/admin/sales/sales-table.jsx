@@ -221,7 +221,7 @@ export function SalesTable({ initialSales }) {
                   <TableCell className="text-muted-foreground">{sale.soldByName ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{sale.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(sale.unitPriceCents)}
+                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents)}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={sale.wholesale ? "info" : "muted"}>
@@ -290,8 +290,11 @@ export function SalesTable({ initialSales }) {
                 <p>
                   <span className="font-medium text-foreground">{voidTarget.productName}</span>
                   {" · "}
-                  {voidTarget.quantity} × {formatMoney(voidTarget.unitPriceCents)} ={" "}
+                  {voidTarget.quantity} unit{voidTarget.quantity === 1 ? "" : "s"} ·{" "}
                   {formatMoney(voidTarget.totalCents)}
+                  {Array.isArray(voidTarget.lines) && voidTarget.lines.length > 1
+                    ? ` · ${voidTarget.lines.length} lines`
+                    : ""}
                 </p>
                 <p className="mt-1">
                   Sold by {voidTarget.soldByName ?? "—"}
