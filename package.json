@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "create-admin": "node --env-file=.env scripts/create-admin.js",
-    "migrate-expenses": "node --env-file=.env scripts/migrate-expenses-approved.js"
+    "migrate-expenses": "node --env-file=.env scripts/migrate-expenses-approved.js",
+    "import-bawsslady": "node --env-file=.env scripts/import-bawsslady-products.js"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
