@@ -12,7 +12,7 @@ export default async function DistributorsPage() {
     <>
       <PageHeader
         title="Distributors"
-        description="Wholesale clients in your network — performance from linked sales (voided excluded)."
+        description="Clients captured on sales (wholesale packs + optional retail CRM with phone) — performance from linked non-voided sales."
       />
       <DistributorsTable initialDistributors={distributors} />
     </>

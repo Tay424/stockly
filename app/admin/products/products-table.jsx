@@ -215,6 +215,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-14">Image</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Retail</TableHead>
@@ -228,7 +229,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={8}
+                  colSpan={9}
                   message={
                     search || categoryFilter !== "all"
                       ? "No products match your filters."
@@ -238,6 +239,20 @@ export function ProductsTable({ initialCategories, initialProducts }) {
               ) : (
                 paginated.map((product) => (
                   <TableRow key={product.id}>
+                    <TableCell>
+                      {product.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={product.imageUrl}
+                          alt=""
+                          className="size-10 rounded-md object-cover"
+                        />
+                      ) : (
+                        <span className="flex size-10 items-center justify-center rounded-md bg-muted text-[10px] text-muted-foreground">
+                          —
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium text-foreground">
                       {product.name}
                       {product.description ? (
@@ -330,6 +345,32 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                 rows={2}
                 defaultValue={editing?.description ?? ""}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="product-image">Product image</Label>
+              {editing?.imageUrl ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={editing.imageUrl}
+                    alt=""
+                    className="size-16 rounded-lg object-cover"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Current image. Upload a new file to replace it.
+                  </p>
+                </div>
+              ) : null}
+              <Input
+                id="product-image"
+                name="image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional JPEG, PNG, or WebP (max 4MB). Shown as tiles on the Sales receipt picker.
+              </p>
             </div>
 
             <div className="grid gap-2">

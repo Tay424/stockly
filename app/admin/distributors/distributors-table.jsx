@@ -76,7 +76,7 @@ export function DistributorsTable({ initialDistributors }) {
                 message={
                   search
                     ? "No distributors match your search."
-                    : "No wholesale clients yet — they appear when a pack sale is recorded."
+                    : "No clients yet — they appear when a sale captures name + phone."
                 }
               />
             ) : (

@@ -32,7 +32,8 @@ export async function fetchDistributorsAction() {
 /**
  * Record a multi-line receipt. Prices and packs are recomputed server-side.
  * `cartLines`: [{ productId, quantity }]
- * `client`: { name, phone } required when the receipt has wholesale packs
+ * `client`: { name, phone } — required (both) when the receipt has wholesale packs;
+ * optional on retail (name only, or name+phone for CRM directory).
  */
 export async function recordSaleReceiptAction(cartLines, client = null) {
   const { user } = await requireUser();
@@ -56,9 +57,14 @@ export async function recordSaleReceiptAction(cartLines, client = null) {
   if (client) {
     const name = String(client.name ?? "").trim();
     const phone = normalizePhone(client.phone);
-    if (!name) return { error: "Client name is required for wholesale packs." };
-    if (!phone) return { error: "Client phone is required for wholesale packs." };
-    clientPayload = { name, phone };
+    if (!name && !phone) {
+      clientPayload = null;
+    } else if (!name && phone) {
+      return { error: "Add a customer name when saving a phone number." };
+    } else {
+      // Phone may be empty for retail name-only CRM snapshots.
+      clientPayload = { name, phone: phone || "" };
+    }
   }
 
   const { ok, reason, totalCents, quantity, wholesale, saleId } = await recordSaleReceipt({
