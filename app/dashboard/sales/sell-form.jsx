@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MinusIcon, PlusIcon, ReceiptTextIcon, Trash2Icon } from "lucide-react";
+import { MinusIcon, PackageIcon, PlusIcon, ReceiptTextIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { StatusPill } from "@/components/status-pill";
@@ -177,36 +177,69 @@ export function SellForm({ initialProducts }) {
     onError: () => toast.error("Could not record that sale. Try again."),
   });
 
+  function openClientDialog() {
+    setClientName("");
+    setClientPhone("");
+    setClientOpen(true);
+  }
+
   function onConfirm() {
     if (cart.length === 0) {
       toast.error("Add at least one product to the receipt.");
       return;
     }
-    if (preview?.wholesale) {
-      setClientOpen(true);
-      return;
-    }
-    saleMutation.mutate(null);
+    // Always offer client capture: required for wholesale, optional for retail CRM.
+    openClientDialog();
+  }
+
+  function submitClient(client) {
+    saleMutation.mutate(client);
   }
 
   function onClientContinue() {
     const name = clientName.trim();
     const phone = clientPhone.trim();
-    if (!name) {
-      toast.error("Client name is required for wholesale packs.");
+    const wholesale = Boolean(preview?.wholesale);
+
+    if (wholesale) {
+      if (!name) {
+        toast.error("Client name is required for wholesale packs.");
+        return;
+      }
+      if (!phone) {
+        toast.error("Client phone is required for wholesale packs.");
+        return;
+      }
+      submitClient({ name, phone });
       return;
     }
-    if (!phone) {
-      toast.error("Client phone is required for wholesale packs.");
+
+    // Retail: empty = skip; name only OK; phone needs a name.
+    if (!name && !phone) {
+      submitClient(null);
       return;
     }
-    saleMutation.mutate({ name, phone });
+    if (!name && phone) {
+      toast.error("Add a customer name when saving a phone number.");
+      return;
+    }
+    submitClient({ name, phone: phone || undefined });
+  }
+
+  function onClientSkip() {
+    if (preview?.wholesale) {
+      toast.error("Client name and phone are required for wholesale packs.");
+      return;
+    }
+    submitClient(null);
   }
 
   function pickDistributor(d) {
     setClientName(d.name ?? "");
     setClientPhone(d.phone ?? "");
   }
+
+  const wholesaleClient = Boolean(preview?.wholesale);
 
   return (
     <>
@@ -223,8 +256,8 @@ export function SellForm({ initialProducts }) {
           <DialogHeader className="border-b border-border px-4 py-3 sm:px-5">
             <DialogTitle>Receipt</DialogTitle>
             <DialogDescription>
-              Pick products by category, set quantities, then confirm. Complete category packs
-              (e.g. 20 @ $80) apply automatically; leftovers stay retail.
+              Tap product photos to add them. Complete category packs (e.g. 20 @ $80) apply
+              automatically; leftovers stay retail.
             </DialogDescription>
           </DialogHeader>
 
@@ -253,21 +286,41 @@ export function SellForm({ initialProducts }) {
                           </span>
                         ) : null}
                       </div>
-                      <div className="grid gap-1.5">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {group.products.map((product) => (
-                          <Button
+                          <button
                             key={product.id}
                             type="button"
-                            variant="outline"
-                            className="h-11 justify-between px-3 text-left text-base font-normal md:text-sm"
                             disabled={saleMutation.isPending}
                             onClick={() => addProduct(product)}
+                            className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-primary/40 hover:bg-muted/40 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
-                            <span className="truncate">{product.name}</span>
-                            <span className="shrink-0 text-muted-foreground tabular-nums">
-                              {formatMoney(product.retailPriceCents)}
-                            </span>
-                          </Button>
+                            <div className="relative aspect-square w-full bg-muted">
+                              {product.imageUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={product.imageUrl}
+                                  alt=""
+                                  className="absolute inset-0 size-full object-cover"
+                                />
+                              ) : (
+                                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-muted-foreground">
+                                  <PackageIcon className="size-8 opacity-50" />
+                                  <span className="line-clamp-2 text-center text-xs font-medium text-foreground">
+                                    {product.name}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid gap-0.5 p-2">
+                              <span className="truncate text-sm font-medium text-foreground">
+                                {product.name}
+                              </span>
+                              <span className="text-xs tabular-nums text-muted-foreground">
+                                {formatMoney(product.retailPriceCents)}
+                              </span>
+                            </div>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -458,25 +511,32 @@ export function SellForm({ initialProducts }) {
       <Dialog open={clientOpen} onOpenChange={setClientOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Wholesale client</DialogTitle>
+            <DialogTitle>
+              {wholesaleClient ? "Wholesale client" : "Customer details"}
+            </DialogTitle>
             <DialogDescription>
-              This receipt includes a wholesale pack. Capture the client for your distributor
-              network — required before confirming.
+              {wholesaleClient
+                ? "This receipt includes a wholesale pack. Capture the client for your distributor network — required before confirming."
+                : "Optional — add a name (and phone) for CRM and marketing. Skip if the customer prefers not to share."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="client-name">Name</Label>
+              <Label htmlFor="client-name">
+                Name{wholesaleClient ? "" : " (optional)"}
+              </Label>
               <Input
                 id="client-name"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                placeholder="Distributor name"
+                placeholder={wholesaleClient ? "Distributor name" : "Customer name"}
                 autoComplete="name"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="client-phone">Phone</Label>
+              <Label htmlFor="client-phone">
+                Phone{wholesaleClient ? "" : " (optional)"}
+              </Label>
               <Input
                 id="client-phone"
                 value={clientPhone}
@@ -487,7 +547,9 @@ export function SellForm({ initialProducts }) {
             </div>
             {filteredDistributors.length > 0 ? (
               <div className="grid gap-1">
-                <p className="text-xs text-muted-foreground">Existing distributors</p>
+                <p className="text-xs text-muted-foreground">
+                  {wholesaleClient ? "Existing distributors" : "Existing contacts"}
+                </p>
                 <div className="max-h-36 overflow-y-auto rounded-lg border border-border">
                   {filteredDistributors.map((d) => (
                     <button
@@ -505,9 +567,20 @@ export function SellForm({ initialProducts }) {
             ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setClientOpen(false)}>
-              Cancel
-            </Button>
+            {wholesaleClient ? (
+              <Button type="button" variant="outline" onClick={() => setClientOpen(false)}>
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saleMutation.isPending}
+                onClick={onClientSkip}
+              >
+                Skip
+              </Button>
+            )}
             <Button
               type="button"
               disabled={saleMutation.isPending}

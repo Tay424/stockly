@@ -204,6 +204,25 @@ async function main() {
   assert.equal(perf[0]?.stats?.[0]?.saleCount, 1);
   assert.equal(perf[0]?.stats?.[0]?.revenueCents, 5000);
 
+  // Retail optional CRM: name-only sale snapshot (no distributor link).
+  const retailSale = await sales.insertOne({
+    productId,
+    productName: product.name,
+    quantity: 1,
+    totalCents: 800,
+    wholesale: false,
+    clientName: `Walkin-${stamp}`,
+    clientPhone: null,
+    distributorId: null,
+    soldBy: sellerId,
+    soldByName: "Smoke Seller",
+    status: "recorded",
+    createdAt: now,
+  });
+  const retailDoc = await sales.findOne({ _id: retailSale.insertedId });
+  assert.equal(retailDoc.clientName, `Walkin-${stamp}`);
+  assert.equal(retailDoc.distributorId, null);
+
   console.log(
     JSON.stringify(
       {
@@ -212,6 +231,7 @@ async function main() {
         distributorId: String(distributorId),
         phone,
         totalCents: priced.totalCents,
+        retailCrmSaleId: String(retailSale.insertedId),
         invoicePath: `/dashboard/sales/${saleId}/invoice`,
       },
       null,

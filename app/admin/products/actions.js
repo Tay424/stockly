@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createProduct, deleteProduct, listProducts, updateProduct } from "@/lib/catalog";
 import { parseMoneyToCents } from "@/lib/pricing";
+import { storeProductImage } from "@/lib/receipts";
 import { requireAdmin } from "@/lib/session";
 
 export async function fetchProductsAction() {
@@ -89,6 +90,21 @@ export async function saveProductAction(id, formData) {
   const { error, fields, stockReason } = readForm(formData);
   if (error) return { error };
 
+  const file = formData.get("image");
+  const hasNewFile =
+    file && typeof file === "object" && "arrayBuffer" in file && Number(file.size) > 0;
+
+  if (hasNewFile) {
+    const stored = await storeProductImage(file);
+    if (!stored.ok) return { error: stored.reason };
+    if (stored.image) {
+      fields.imageUrl = stored.image.url;
+      fields.imageKey = stored.image.key;
+      fields.imageMime = stored.image.mime;
+      fields.imageName = stored.image.name;
+    }
+  }
+
   const actor = { id: user.id, name: user.name };
 
   if (id) {
@@ -97,6 +113,12 @@ export async function saveProductAction(id, formData) {
   } else {
     if (fields.stock > 0 && !stockReason) {
       return { error: "A reason is required when setting initial stock." };
+    }
+    if (!fields.imageUrl) {
+      fields.imageUrl = null;
+      fields.imageKey = null;
+      fields.imageMime = null;
+      fields.imageName = null;
     }
     await createProduct(fields, { actor, stockReason });
   }
