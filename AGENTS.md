@@ -22,6 +22,7 @@ A simple stock management system with two roles:
 
 - Use shadcn `sonner` for toasts.
 - Match the look and feel of `~/Documents/running-projects/utashiamdin` — sidebar, tables, filters, and colors.
+- **PWA (installable):** web app manifest + icons; attendants get a mobile bottom nav (Dashboard / Sales / Expenses). Install via browser “Add to Home Screen” (iOS: Share → Add to Home Screen). Still **online-only** for sales/expenses — no offline queue. `NEXT_PUBLIC_BASE_URL` must match the deploy origin so cookies work after install.
 
 ## Environment
 
