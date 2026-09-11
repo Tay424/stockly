@@ -219,8 +219,6 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                 <TableHead>Product</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Retail</TableHead>
-                <TableHead className="text-right">Wholesale</TableHead>
-                <TableHead>Price tier</TableHead>
                 <TableHead>Discount</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -229,7 +227,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={9}
+                  colSpan={7}
                   message={
                     search || categoryFilter !== "all"
                       ? "No products match your filters."
@@ -266,14 +264,6 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatMoney(product.retailPriceCents)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(product.wholesalePriceCents)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {product.wholesaleMinQty > 0
-                        ? `${product.wholesaleMinQty}+ units`
-                        : "Retail only"}
                     </TableCell>
                     <TableCell>
                       <DiscountCell product={product} />
@@ -321,9 +311,9 @@ export function ProductsTable({ initialCategories, initialProducts }) {
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit product" : "New product"}</DialogTitle>
             <DialogDescription>
-              Sales receipts use category wholesale packs (set on Categories). Product wholesale
-              min qty / price below are not used on the Sales receipt — leave them for reference
-              or later. Active discounts also do not apply on the receipt (full retail leftovers).
+              Set the retail unit price here. Wholesale applies only via category packs (Categories
+              → pack qty and pack price) when a receipt hits those quantities. Discounts do not
+              apply on the Sales receipt — leftover units stay full retail.
             </DialogDescription>
           </DialogHeader>
           {/* Remount when switching create/edit/product so uncontrolled defaultValues stay in sync. */}
@@ -407,36 +397,6 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="product-wholesale">Wholesale price</Label>
-                <Input
-                  id="product-wholesale"
-                  name="wholesalePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={editing?.id ? toAmount(editing.wholesalePriceCents) : ""}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="product-min-qty">Wholesale from (qty)</Label>
-                <Input
-                  id="product-min-qty"
-                  name="wholesaleMinQty"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={editing?.wholesaleMinQty ?? 0}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Buy this many or more and the price drops to wholesale. 0 disables it.
-                </p>
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="product-stock">Stock on hand</Label>
                 <Input
                   id="product-stock"
@@ -492,7 +452,8 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                   defaultValue={editing?.discountPercent ?? 0}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Comes off whichever price applies — retail or wholesale. 0 means no discount.
+                  Percent off the retail unit price. 0 means no discount. Not applied on Sales
+                  receipt leftovers.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
