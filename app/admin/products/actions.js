@@ -25,8 +25,6 @@ function readForm(formData) {
   const description = String(formData.get("description") ?? "").trim();
   const categoryId = String(formData.get("categoryId") ?? "").trim();
   const retailPriceCents = parseMoneyToCents(formData.get("retailPrice"));
-  const wholesalePriceCents = parseMoneyToCents(formData.get("wholesalePrice"));
-  const wholesaleMinQty = Number(formData.get("wholesaleMinQty"));
   const stock = Number(formData.get("stock") ?? 0);
   const stockReason = String(formData.get("stockReason") ?? "").trim();
   const discountPercent = Number(formData.get("discountPercent") ?? 0);
@@ -36,15 +34,8 @@ function readForm(formData) {
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Pick a category." };
   if (retailPriceCents === null) return { error: "Retail price must be a valid amount." };
-  if (wholesalePriceCents === null) return { error: "Wholesale price must be a valid amount." };
-  if (!Number.isInteger(wholesaleMinQty) || wholesaleMinQty < 0) {
-    return { error: "Wholesale quantity must be a whole number." };
-  }
   if (!Number.isInteger(stock) || stock < 0) {
     return { error: "Stock must be a whole number." };
-  }
-  if (wholesaleMinQty > 0 && wholesalePriceCents > retailPriceCents) {
-    return { error: "Wholesale price should not be higher than the retail price." };
   }
   if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
     return { error: "Discount must be between 0 and 100." };
@@ -65,8 +56,6 @@ function readForm(formData) {
       description,
       categoryId,
       retailPriceCents,
-      wholesalePriceCents,
-      wholesaleMinQty,
       stock,
       // A 0% discount clears the window rather than leaving orphaned dates.
       discountPercent: discountPercent > 0 ? discountPercent : 0,
