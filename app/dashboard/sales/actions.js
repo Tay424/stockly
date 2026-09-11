@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import {
+  getSaleById,
   listSalesBySeller,
   listSellableProducts,
   recordSaleReceipt,
   requestSaleVoid,
 } from "@/lib/catalog";
+import { listDistributors, normalizePhone } from "@/lib/distributors";
 import { requireUser } from "@/lib/session";
 
 export async function fetchSellableProductsAction() {
@@ -15,16 +17,24 @@ export async function fetchSellableProductsAction() {
   return listSellableProducts();
 }
 
+/** Attendant history: last 24 hours only. */
 export async function fetchAllMySalesAction() {
   const { user } = await requireUser();
-  return listSalesBySeller(user.id, 500);
+  return listSalesBySeller(user.id, 500, { sinceHours: 24 });
+}
+
+/** Light list for the wholesale client picker. */
+export async function fetchDistributorsAction() {
+  await requireUser();
+  return listDistributors({ limit: 300 });
 }
 
 /**
  * Record a multi-line receipt. Prices and packs are recomputed server-side.
  * `cartLines`: [{ productId, quantity }]
+ * `client`: { name, phone } required when the receipt has wholesale packs
  */
-export async function recordSaleReceiptAction(cartLines) {
+export async function recordSaleReceiptAction(cartLines, client = null) {
   const { user } = await requireUser();
 
   if (!Array.isArray(cartLines) || cartLines.length === 0) {
@@ -42,12 +52,22 @@ export async function recordSaleReceiptAction(cartLines) {
     normalized.push({ productId, quantity });
   }
 
-  const { ok, reason, totalCents, quantity, wholesale } = await recordSaleReceipt({
+  let clientPayload = null;
+  if (client) {
+    const name = String(client.name ?? "").trim();
+    const phone = normalizePhone(client.phone);
+    if (!name) return { error: "Client name is required for wholesale packs." };
+    if (!phone) return { error: "Client phone is required for wholesale packs." };
+    clientPayload = { name, phone };
+  }
+
+  const { ok, reason, totalCents, quantity, wholesale, saleId } = await recordSaleReceipt({
     cartLines: normalized,
     saleMeta: {
       soldBy: user.id,
       soldByName: user.name,
     },
+    client: clientPayload,
   });
 
   if (!ok) return { error: reason };
@@ -57,7 +77,8 @@ export async function recordSaleReceiptAction(cartLines) {
   revalidatePath("/admin/sales");
   revalidatePath("/admin/products");
   revalidatePath("/admin/integrity");
-  return { totalCents, quantity, wholesale };
+  revalidatePath("/admin/distributors");
+  return { totalCents, quantity, wholesale, saleId };
 }
 
 export async function requestVoidAction(saleId, reason) {
@@ -73,5 +94,17 @@ export async function requestVoidAction(saleId, reason) {
   revalidatePath("/dashboard/sales");
   revalidatePath("/admin/sales");
   revalidatePath("/admin/integrity");
+  revalidatePath("/admin/distributors");
   return {};
+}
+
+/** Load a sale for invoice — own sale for attendants, any for admin. */
+export async function loadSaleForInvoiceAction(saleId) {
+  const { user } = await requireUser();
+  const sale = await getSaleById(saleId);
+  if (!sale) return { error: "Sale not found." };
+  if (user.role !== "admin" && sale.soldBy !== user.id) {
+    return { error: "You can only open invoices for your own sales." };
+  }
+  return { sale };
 }

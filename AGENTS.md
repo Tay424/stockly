@@ -51,7 +51,10 @@ A simple stock management system with two roles:
 - **Receipt cart:** one popout receipt per customer — pick products by category, set qtys, confirm. Replaces the old single-product form.
 - **Category wholesale packs:** on each category, optional `wholesalePackQty` / `wholesalePackPriceCents` (default off). Per category on a receipt: `floor(qty / packQty)` packs at pack price; leftover units full retail (no % discounts on the receipt). Next pack at 40, 60, … Mixed SKUs in the same category can fill one pack. Other categories on the same receipt stay retail (or their own packs).
 - Sellable picker: `stock > 0` **and** product has a category; stock validated on submit (cart kept if it fails).
-- After success: clear cart, keep receipt open for the next customer.
+- After success: clear cart, keep receipt open for the next customer; **Open invoice** for print/share.
+- **Wholesale client:** when the receipt includes a pack, confirm requires client name + phone (upserts `distributor` by phone).
+- **Invoices:** `/dashboard/sales/[id]/invoice` — print-friendly; Share via Web Share API or copy link. Available after sale and from sales tables.
+- **Attendant history:** last **24 hours** only on `/dashboard/sales`. Admin sales history stays permanent (no deletes).
 - Online only (no offline queue).
 
 ### Phase 1b — Integrity + voids (done)
@@ -87,6 +90,10 @@ A simple stock management system with two roles:
 | Where to sell | Sales tab; Dashboard = overview |
 | Sale granularity | Per receipt as it happens (multi-line OK) |
 | Sale pricing | Category packs on receipt; product wholesale fields ignored there |
+| Wholesale client | Required name+phone when pack applies; distributor upsert by phone |
+| Invoice share | Print page + Share / copy link; after sale + sales tables |
+| Attendant sale list | Last 24h only; admin keeps full history |
+| Distributors | Admin `/admin/distributors` — performance from non-voided linked sales |
 | Sale edits | No silent edits; void request → admin executes (whole receipt) |
 | Void window | Attendant same-day; admin any age; one open request/sale |
 | Stock truth | Full movement ledger (sale/void/admin adjust); one movement per product line |
