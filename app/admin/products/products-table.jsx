@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, PercentIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { StatusPill } from "@/components/status-pill";
@@ -39,6 +39,7 @@ import { useTablePagination } from "@/hooks/use-table-pagination";
 import { discountStatus, formatMoney } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery, filterTriggerClassName } from "@/lib/table-filter";
+import { cn } from "@/lib/utils";
 
 import { fetchCategoriesAction } from "../categories/actions";
 import { deleteProductAction, fetchProductsAction, saveProductAction } from "./actions";
@@ -84,6 +85,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
   const [editing, setEditing] = useState(null); // null = closed, {} = new
   const [formCategoryId, setFormCategoryId] = useState("");
   const [formStock, setFormStock] = useState(0);
+  const [discountOpen, setDiscountOpen] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   const { data: products } = useQuery({
@@ -150,6 +152,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
   function openForm(product) {
     setFormCategoryId(product?.categoryId ?? "");
     setFormStock(product?.stock ?? 0);
+    setDiscountOpen((product?.discountPercent ?? 0) > 0);
     setEditing(product ?? {});
   }
 
@@ -312,8 +315,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
             <DialogTitle>{editing?.id ? "Edit product" : "New product"}</DialogTitle>
             <DialogDescription>
               Set the retail unit price here. Wholesale applies only via category packs (Categories
-              → pack qty and pack price) when a receipt hits those quantities. Discounts do not
-              apply on the Sales receipt — leftover units stay full retail.
+              → pack qty and pack price) when a receipt hits those quantities.
             </DialogDescription>
           </DialogHeader>
           {/* Remount when switching create/edit/product so uncontrolled defaultValues stay in sync. */}
@@ -438,46 +440,76 @@ export function ProductsTable({ initialCategories, initialProducts }) {
               );
             })()}
 
-            <fieldset className="grid gap-4 rounded-lg border border-border p-4">
-              <legend className="px-1 text-sm font-medium">Discount</legend>
-              <div className="grid gap-2">
-                <Label htmlFor="product-discount">Percent off</Label>
-                <Input
-                  id="product-discount"
-                  name="discountPercent"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  defaultValue={editing?.discountPercent ?? 0}
+            <div className="grid gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-between"
+                aria-expanded={discountOpen}
+                onClick={() => setDiscountOpen((open) => !open)}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <PercentIcon className="size-4" />
+                  Discount
+                  {(editing?.discountPercent ?? 0) > 0 ? (
+                    <StatusPill tone="success">{editing.discountPercent}% off</StatusPill>
+                  ) : null}
+                </span>
+                <ChevronDownIcon
+                  className={cn(
+                    "size-4 text-muted-foreground transition-transform",
+                    discountOpen && "rotate-180",
+                  )}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Percent off the retail unit price. 0 means no discount. Not applied on Sales
-                  receipt leftovers.
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              </Button>
+
+              {/* Keep fields mounted while collapsed so values still submit / persist. */}
+              <fieldset
+                className={cn(
+                  "grid gap-4 rounded-lg border border-border p-4",
+                  !discountOpen && "hidden",
+                )}
+              >
+                <legend className="sr-only">Discount details</legend>
                 <div className="grid gap-2">
-                  <Label htmlFor="product-discount-start">Starts</Label>
+                  <Label htmlFor="product-discount">Percent off</Label>
                   <Input
-                    id="product-discount-start"
-                    name="discountStartsAt"
-                    type="datetime-local"
-                    defaultValue={toLocalInputValue(editing?.discountStartsAt)}
+                    id="product-discount"
+                    name="discountPercent"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    defaultValue={editing?.discountPercent ?? 0}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Percent off the retail unit price. 0 means no discount. Not applied on Sales
+                    receipt leftovers.
+                  </p>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="product-discount-end">Ends</Label>
-                  <Input
-                    id="product-discount-end"
-                    name="discountEndsAt"
-                    type="datetime-local"
-                    defaultValue={toLocalInputValue(editing?.discountEndsAt)}
-                  />
-                  <p className="text-xs text-muted-foreground">Leave empty to run indefinitely.</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="product-discount-start">Starts</Label>
+                    <Input
+                      id="product-discount-start"
+                      name="discountStartsAt"
+                      type="datetime-local"
+                      defaultValue={toLocalInputValue(editing?.discountStartsAt)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="product-discount-end">Ends</Label>
+                    <Input
+                      id="product-discount-end"
+                      name="discountEndsAt"
+                      type="datetime-local"
+                      defaultValue={toLocalInputValue(editing?.discountEndsAt)}
+                    />
+                    <p className="text-xs text-muted-foreground">Leave empty to run indefinitely.</p>
+                  </div>
                 </div>
-              </div>
-            </fieldset>
+              </fieldset>
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
