@@ -329,21 +329,29 @@ export function SellForm({ initialProducts }) {
               )}
             </div>
 
-            <div className="flex min-h-0 flex-col overflow-hidden bg-secondary/30">
+            <div className="flex min-h-0 flex-col overflow-hidden bg-[#f7f1ea]/80">
               <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-                <p className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  This sale
-                </p>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                    Receipt
+                  </p>
+                  {preview ? (
+                    <span className="rounded-full bg-background/80 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground ring-1 ring-border">
+                      {formatMoney(preview.totalCents)}
+                    </span>
+                  ) : null}
+                </div>
 
                 {lastSaleId ? (
-                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
+                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[#e8ddd0] bg-[#fffdf9] p-3 text-sm shadow-sm">
                     <span className="text-muted-foreground">Last sale ready to share.</span>
                     <Button
                       type="button"
                       size="sm"
+                      className="rounded-full"
                       render={<a href={`/dashboard/sales/${lastSaleId}/invoice`} target="_blank" rel="noreferrer" />}
                     >
-                      Open invoice
+                      Open receipt
                     </Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setLastSaleId(null)}>
                       Dismiss
@@ -352,17 +360,19 @@ export function SellForm({ initialProducts }) {
                 ) : null}
 
                 {cart.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Tap products on the left to build the receipt.
-                  </p>
+                  <div className="rounded-2xl border border-dashed border-[#e5d7c8] bg-[#fffdf9]/70 px-4 py-8 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Tap products on the left to build the receipt.
+                    </p>
+                  </div>
                 ) : (
-                  <div className="grid gap-4">
+                  <div className="grid gap-3">
                     {cart.map((line) => {
                       const product = productsById.get(line.productId);
                       return (
                         <div
                           key={line.productId}
-                          className="grid gap-2 rounded-lg border border-border bg-card p-3"
+                          className="grid gap-2 rounded-2xl border border-[#e8ddd0] bg-[#fffdf9] p-3 shadow-sm"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -389,7 +399,7 @@ export function SellForm({ initialProducts }) {
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="size-10 shrink-0"
+                              className="size-10 shrink-0 rounded-full"
                               aria-label="Decrease quantity"
                               disabled={saleMutation.isPending || line.quantity <= 1}
                               onClick={() => bumpLine(line.productId, -1)}
@@ -400,7 +410,7 @@ export function SellForm({ initialProducts }) {
                               type="number"
                               min={1}
                               step={1}
-                              className="h-10 w-full min-w-0 rounded-lg border border-input bg-background text-center text-lg font-medium tabular-nums"
+                              className="h-10 w-full min-w-0 rounded-xl border border-input bg-background text-center text-lg font-medium tabular-nums"
                               value={line.quantity}
                               disabled={saleMutation.isPending}
                               onChange={(event) =>
@@ -411,7 +421,7 @@ export function SellForm({ initialProducts }) {
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="size-10 shrink-0"
+                              className="size-10 shrink-0 rounded-full"
                               aria-label="Increase quantity"
                               disabled={saleMutation.isPending}
                               onClick={() => bumpLine(line.productId, 1)}
@@ -424,52 +434,58 @@ export function SellForm({ initialProducts }) {
                     })}
 
                     {preview ? (
-                      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 text-sm">
-                        {preview.packs.map((pack) => (
-                          <div key={pack.categoryId} className="grid gap-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex min-w-0 items-center gap-2">
-                                <StatusPill tone="info">Wholesale pack</StatusPill>
-                                <span className="truncate font-medium">
-                                  {pack.categoryName} ×{pack.packCount}
+                      <div className="grid gap-0 overflow-hidden rounded-2xl border border-[#e8ddd0] bg-[#fffdf9] text-sm shadow-sm">
+                        <div className="border-b border-dashed border-[#e5d7c8] px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                          Summary
+                        </div>
+                        <div className="grid gap-3 px-3 py-3">
+                          {preview.packs.map((pack) => (
+                            <div key={pack.categoryId} className="grid gap-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <StatusPill tone="info">Pack</StatusPill>
+                                  <span className="truncate font-medium">
+                                    {pack.categoryName} ×{pack.packCount}
+                                  </span>
+                                </div>
+                                <span className="shrink-0 font-semibold tabular-nums">
+                                  {formatMoney(pack.totalCents)}
                                 </span>
                               </div>
-                              <span className="shrink-0 font-medium tabular-nums">
-                                {formatMoney(pack.totalCents)}
+                              <ul className="space-y-0.5 text-xs text-muted-foreground">
+                                {pack.contributions.map((c) => (
+                                  <li key={c.productId}>
+                                    {c.productName} ×{c.quantity}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+
+                          {preview.retailLines.map((line) => (
+                            <div
+                              key={`retail-${line.productId}`}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate font-medium">
+                                  {line.productName} ×{line.quantity}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatMoney(line.unitPriceCents)} each · retail
+                                </p>
+                              </div>
+                              <span className="shrink-0 font-semibold tabular-nums">
+                                {formatMoney(line.lineTotalCents)}
                               </span>
                             </div>
-                            <ul className="space-y-0.5 pl-1 text-xs text-muted-foreground">
-                              {pack.contributions.map((c) => (
-                                <li key={c.productId}>
-                                  {c.productName} ×{c.quantity}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-
-                        {preview.retailLines.map((line) => (
-                          <div
-                            key={`retail-${line.productId}`}
-                            className="flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate">
-                                {line.productName} ×{line.quantity}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatMoney(line.unitPriceCents)} each · retail
-                              </p>
-                            </div>
-                            <span className="shrink-0 tabular-nums">
-                              {formatMoney(line.lineTotalCents)}
-                            </span>
-                          </div>
-                        ))}
-
-                        <div className="flex items-center justify-between border-t border-border pt-2 text-base">
-                          <span className="font-medium">Total</span>
-                          <span className="font-semibold tabular-nums">
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between bg-primary px-3 py-3 text-primary-foreground">
+                          <span className="text-xs font-medium tracking-wide uppercase opacity-80">
+                            Total
+                          </span>
+                          <span className="text-lg font-semibold tabular-nums">
                             {formatMoney(preview.totalCents)}
                           </span>
                         </div>
