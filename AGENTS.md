@@ -92,7 +92,7 @@ A simple stock management system with two roles:
 |-------|----------|
 | Where to sell | Sales tab; Dashboard = overview |
 | Sale granularity | Per receipt as it happens (multi-line OK) |
-| Sale pricing | Category packs on receipt; product wholesale fields ignored there |
+| Sale pricing | Category packs on receipt; products have retail only (no product wholesale) |
 | Wholesale client | Required name+phone when pack applies; distributor upsert by phone |
 | Retail CRM client | Optional name (± phone); Skip OK; name+phone joins directory |
 | Product image | Optional 1× JPEG/PNG/WebP; sell picker is image tiles |
