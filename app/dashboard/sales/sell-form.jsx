@@ -361,8 +361,8 @@ export function SellForm({ initialProducts }) {
 
                 {cart.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[#e5d7c8] bg-[#fffdf9]/70 px-4 py-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Tap products on the left to build the receipt.
+                    <p className="text-sm text-muted-foreground text-balance">
+                      Tap products to build the receipt.
                     </p>
                   </div>
                 ) : (
