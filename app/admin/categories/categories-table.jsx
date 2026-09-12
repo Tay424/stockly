@@ -32,7 +32,7 @@ import { formatMoney } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery } from "@/lib/table-filter";
 
-import { deleteCategoryAction, fetchCategoriesAction, saveCategoryAction } from "./actions";
+import { deleteCategoryAction, fetchCategoriesAction, repriceNhavaSaltSalesAction, saveCategoryAction } from "./actions";
 
 function wholesalePackLabel(category) {
   const qty = category.wholesalePackQty ?? 0;
@@ -97,6 +97,27 @@ export function CategoriesTable({ initialCategories }) {
     onError: () => toast.error("Something went wrong. Try again."),
   });
 
+  const repriceNhavaMutation = useMutation({
+    mutationFn: () => repriceNhavaSaltSalesAction(true),
+    onSuccess: async (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      await refresh();
+      const n = res.result?.updatedCount ?? 0;
+      const skipped = res.result?.skippedCount ?? 0;
+      toast.success(
+        n > 0
+          ? `Repriced ${n} Nhava Salt sale${n === 1 ? "" : "s"}${skipped ? ` (${skipped} skipped)` : ""}.`
+          : skipped
+            ? `No sales updated (${skipped} skipped).`
+            : "No Nhava Salt sales found to reprice.",
+      );
+    },
+    onError: () => toast.error("Could not reprice Nhava Salt sales."),
+  });
+
   const filtered = useMemo(
     () => filterByQuery(categories, search, (c) => `${c.name} ${c.description ?? ""}`),
     [categories, search],
@@ -119,7 +140,24 @@ export function CategoriesTable({ initialCategories }) {
 
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={repriceNhavaMutation.isPending}
+          onClick={() => {
+            if (
+              !window.confirm(
+                "Move Nhava Salt to its own category ($30 each / 5 for $60) and rewrite past sales that include it? Stock counts stay the same.",
+              )
+            ) {
+              return;
+            }
+            repriceNhavaMutation.mutate();
+          }}
+        >
+          {repriceNhavaMutation.isPending ? "Repricing Nhava…" : "Reprice Nhava Salt sales"}
+        </Button>
         <Button onClick={() => setEditing({})}>
           <PlusIcon />
           New category
