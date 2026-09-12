@@ -77,6 +77,8 @@ export function BackfillSaleForm({ initialProducts }) {
         name: product.categoryName ?? "Category",
         wholesalePackQty: product.wholesalePackQty ?? 0,
         wholesalePackPriceCents: product.wholesalePackPriceCents ?? 0,
+        retailPackQty: product.retailPackQty ?? 0,
+        retailPackPriceCents: product.retailPackPriceCents ?? 0,
       });
     }
     return map;
@@ -84,18 +86,31 @@ export function BackfillSaleForm({ initialProducts }) {
 
   const productItems = useMemo(
     () =>
-      (products ?? []).map((p) => ({
-        value: p.id,
-        label: `${p.name} · ${formatMoney(p.retailPriceCents)} · stock ${p.stock}`,
-      })),
+      (products ?? []).map((p) => {
+        const pack =
+          Number(p.retailPackQty) > 0
+            ? ` · pack of ${p.retailPackQty} @ ${formatMoney(p.retailPackPriceCents ?? 0)}`
+            : ` · ${formatMoney(p.retailPriceCents)}`;
+        return {
+          value: p.id,
+          label: `${p.name}${pack} · stock ${p.stock}`,
+        };
+      }),
     [products],
   );
 
   const preview = useMemo(() => {
     if (cart.length === 0) return null;
-    const priced = priceReceipt(cart, productsById, categoriesById);
-    return priced.ok ? priced : null;
+    return priceReceipt(cart, productsById, categoriesById);
   }, [cart, productsById, categoriesById]);
+
+  function packStepFor(productId) {
+    const product = productsById.get(productId);
+    const step = Number(product?.retailPackQty) || 0;
+    return step > 0 ? step : 1;
+  }
+
+  const selectedStep = productId ? packStepFor(productId) : 1;
 
   const filteredDistributors = useMemo(() => {
     const q = clientPhone.replace(/\D/g, "");
@@ -117,7 +132,10 @@ export function BackfillSaleForm({ initialProducts }) {
       toast.error("Choose a product.");
       return;
     }
-    const quantity = Math.max(1, Number.parseInt(qtyDraft, 10) || 1);
+    const step = packStepFor(productId);
+    let quantity = Math.max(step, Number.parseInt(qtyDraft, 10) || step);
+    if (step > 1) quantity = Math.round(quantity / step) * step;
+    if (quantity < step) quantity = step;
     setCart((current) => {
       const existing = current.find((line) => line.productId === productId);
       if (existing) {
@@ -129,18 +147,20 @@ export function BackfillSaleForm({ initialProducts }) {
       }
       return [...current, { productId, quantity }];
     });
-    setQtyDraft("1");
+    setQtyDraft(String(step));
   }
 
-  function bumpLine(id, delta) {
+  function bumpLine(id, direction) {
+    const step = packStepFor(id);
+    const delta = direction * step;
     setCart((current) =>
       current
         .map((line) =>
           line.productId === id
-            ? { ...line, quantity: Math.max(1, line.quantity + delta) }
+            ? { ...line, quantity: line.quantity + delta }
             : line,
         )
-        .filter((line) => line.quantity >= 1),
+        .filter((line) => line.quantity >= step),
     );
   }
 
@@ -194,6 +214,10 @@ export function BackfillSaleForm({ initialProducts }) {
   function onRecord() {
     if (cart.length === 0) {
       toast.error("Add at least one product.");
+      return;
+    }
+    if (preview && !preview.ok) {
+      toast.error(preview.reason || "Fix quantities before recording.");
       return;
     }
     if (!soldAtLocal) {
@@ -272,7 +296,18 @@ export function BackfillSaleForm({ initialProducts }) {
       <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_6rem_auto] sm:items-end">
         <div className="grid gap-2">
           <Label>Product</Label>
-          <Select value={productId || undefined} onValueChange={setProductId} items={productItems}>
+          <Select
+            value={productId || undefined}
+            onValueChange={(value) => {
+              setProductId(value);
+              const step =
+                Number(productsById.get(value)?.retailPackQty) > 0
+                  ? Number(productsById.get(value).retailPackQty)
+                  : 1;
+              setQtyDraft(String(step));
+            }}
+            items={productItems}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Choose product" />
             </SelectTrigger>
@@ -290,11 +325,14 @@ export function BackfillSaleForm({ initialProducts }) {
           <Input
             id="backfill-qty"
             type="number"
-            min={1}
-            step={1}
+            min={selectedStep}
+            step={selectedStep}
             value={qtyDraft}
             onChange={(e) => setQtyDraft(e.target.value)}
           />
+          {selectedStep > 1 ? (
+            <p className="text-xs text-muted-foreground">Sold in packs of {selectedStep}</p>
+          ) : null}
         </div>
         <Button type="button" onClick={addToCart} disabled={mutation.isPending}>
           Add to receipt
@@ -311,6 +349,7 @@ export function BackfillSaleForm({ initialProducts }) {
           <ul className="divide-y divide-border">
             {cart.map((line) => {
               const product = productsById.get(line.productId);
+              const step = packStepFor(line.productId);
               return (
                 <li
                   key={line.productId}
@@ -321,7 +360,10 @@ export function BackfillSaleForm({ initialProducts }) {
                       {product?.name ?? "Product"}
                     </p>
                     <p className="text-xs text-muted-foreground tabular-nums">
-                      {formatMoney(product?.retailPriceCents ?? 0)} each · stock{" "}
+                      {step > 1
+                        ? `Packs of ${step} @ ${formatMoney(product?.retailPackPriceCents ?? 0)}`
+                        : `${formatMoney(product?.retailPriceCents ?? 0)} each`}
+                      {" · stock "}
                       {product?.stock ?? "—"}
                     </p>
                   </div>
@@ -331,7 +373,7 @@ export function BackfillSaleForm({ initialProducts }) {
                       size="icon-sm"
                       variant="outline"
                       onClick={() => bumpLine(line.productId, -1)}
-                      disabled={mutation.isPending}
+                      disabled={mutation.isPending || line.quantity <= step}
                       aria-label="Decrease quantity"
                     >
                       <MinusIcon className="size-4" />
@@ -365,12 +407,14 @@ export function BackfillSaleForm({ initialProducts }) {
         )}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
           <p className="text-sm text-muted-foreground">
-            {preview
-              ? `${preview.quantity} units${preview.wholesale ? " · includes pack pricing" : ""}`
-              : "—"}
+            {preview?.ok
+              ? `${preview.quantity} units${preview.wholesale ? " · includes wholesale pack" : ""}${(preview.retailPacks?.length ?? 0) > 0 ? " · retail packs" : ""}`
+              : preview && !preview.ok
+                ? preview.reason
+                : "—"}
           </p>
           <p className="text-lg font-medium tabular-nums text-foreground">
-            {preview ? formatMoney(preview.totalCents) : formatMoney(0)}
+            {preview?.ok ? formatMoney(preview.totalCents) : formatMoney(0)}
           </p>
         </div>
       </div>
@@ -380,7 +424,7 @@ export function BackfillSaleForm({ initialProducts }) {
           type="button"
           size="lg"
           onClick={onRecord}
-          disabled={mutation.isPending || cart.length === 0}
+          disabled={mutation.isPending || cart.length === 0 || (preview && !preview.ok)}
         >
           {mutation.isPending ? "Saving…" : "Record past sale"}
         </Button>

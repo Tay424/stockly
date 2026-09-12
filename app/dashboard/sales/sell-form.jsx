@@ -73,6 +73,8 @@ export function SellForm({ initialProducts }) {
         name: product.categoryName ?? "Category",
         wholesalePackQty: product.wholesalePackQty ?? 0,
         wholesalePackPriceCents: product.wholesalePackPriceCents ?? 0,
+        retailPackQty: product.retailPackQty ?? 0,
+        retailPackPriceCents: product.retailPackPriceCents ?? 0,
       });
     }
     return map;
@@ -86,6 +88,10 @@ export function SellForm({ initialProducts }) {
         groups.set(key, {
           categoryId: key,
           categoryName: product.categoryName ?? "Category",
+          wholesalePackQty: product.wholesalePackQty ?? 0,
+          wholesalePackPriceCents: product.wholesalePackPriceCents ?? 0,
+          retailPackQty: product.retailPackQty ?? 0,
+          retailPackPriceCents: product.retailPackPriceCents ?? 0,
           products: [],
         });
       }
@@ -98,39 +104,50 @@ export function SellForm({ initialProducts }) {
 
   const preview = useMemo(() => {
     if (cart.length === 0) return null;
-    const priced = priceReceipt(cart, productsById, categoriesById);
-    return priced.ok ? priced : null;
+    return priceReceipt(cart, productsById, categoriesById);
   }, [cart, productsById, categoriesById]);
 
+  function packStepFor(productId) {
+    const product = productsById.get(productId);
+    const step = Number(product?.retailPackQty) || 0;
+    return step > 0 ? step : 1;
+  }
+
   function addProduct(product) {
+    const step = Number(product.retailPackQty) > 0 ? Number(product.retailPackQty) : 1;
     setCart((current) => {
       const existing = current.find((line) => line.productId === product.id);
       if (existing) {
         return current.map((line) =>
           line.productId === product.id
-            ? { ...line, quantity: line.quantity + 1 }
+            ? { ...line, quantity: line.quantity + step }
             : line,
         );
       }
-      return [...current, { productId: product.id, quantity: 1 }];
+      return [...current, { productId: product.id, quantity: step }];
     });
   }
 
   function setLineQty(productId, quantity) {
-    const qty = Math.max(1, Number(quantity) || 1);
+    const step = packStepFor(productId);
+    let qty = Math.max(step, Number(quantity) || step);
+    if (step > 1) qty = Math.round(qty / step) * step;
+    if (qty < step) qty = step;
     setCart((current) =>
       current.map((line) => (line.productId === productId ? { ...line, quantity: qty } : line)),
     );
   }
 
-  function bumpLine(productId, delta) {
+  function bumpLine(productId, direction) {
+    const step = packStepFor(productId);
+    const delta = direction * step;
     setCart((current) =>
       current
         .map((line) => {
           if (line.productId !== productId) return line;
-          return { ...line, quantity: Math.max(1, line.quantity + delta) };
+          return { ...line, quantity: line.quantity + delta };
         })
-        .filter((line) => line.quantity >= 1),
+        .filter((line) => line.quantity >= step),
     );
   }
 
@@ -186,6 +203,10 @@ export function SellForm({ initialProducts }) {
   function onConfirm() {
     if (cart.length === 0) {
       toast.error("Add at least one product to the receipt.");
+      return;
+    }
+    if (preview && !preview.ok) {
+      toast.error(preview.reason || "Fix quantities before recording.");
       return;
     }
     // Always offer client capture: required for wholesale, optional for retail CRM.
@@ -256,8 +277,8 @@ export function SellForm({ initialProducts }) {
           <DialogHeader className="border-b border-border px-4 py-3 sm:px-5">
             <DialogTitle>Receipt</DialogTitle>
             <DialogDescription>
-              Tap product photos to add them. Complete category packs (e.g. 20 @ $80) apply
-              automatically; leftovers stay retail.
+              Tap product photos to add them. Wholesale packs apply first; retail pack
+              categories (e.g. 3 @ $10) only sell in those pack sizes.
             </DialogDescription>
           </DialogHeader>
 
@@ -275,16 +296,24 @@ export function SellForm({ initialProducts }) {
                 <div className="grid gap-5">
                   {byCategory.map((group) => (
                     <div key={group.categoryId} className="grid gap-2">
-                      <div className="flex items-baseline justify-between gap-2">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <h3 className="text-sm font-semibold text-foreground">
                           {group.categoryName}
                         </h3>
-                        {(group.products[0]?.wholesalePackQty ?? 0) > 0 ? (
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            Pack {group.products[0].wholesalePackQty} @{" "}
-                            {formatMoney(group.products[0].wholesalePackPriceCents ?? 0)}
-                          </span>
-                        ) : null}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
+                          {(group.retailPackQty ?? 0) > 0 ? (
+                            <span>
+                              Pack of {group.retailPackQty} @{" "}
+                              {formatMoney(group.retailPackPriceCents ?? 0)}
+                            </span>
+                          ) : null}
+                          {(group.wholesalePackQty ?? 0) > 0 ? (
+                            <span>
+                              Wholesale {group.wholesalePackQty} @{" "}
+                              {formatMoney(group.wholesalePackPriceCents ?? 0)}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {group.products.map((product) => (
@@ -317,7 +346,9 @@ export function SellForm({ initialProducts }) {
                                 {product.name}
                               </span>
                               <span className="text-xs tabular-nums text-muted-foreground">
-                                {formatMoney(product.retailPriceCents)}
+                                {product.retailPackQty > 0
+                                  ? `Pack of ${product.retailPackQty} · ${formatMoney(product.retailPackPriceCents ?? 0)}`
+                                  : formatMoney(product.retailPriceCents)}
                               </span>
                             </div>
                           </button>
@@ -335,7 +366,7 @@ export function SellForm({ initialProducts }) {
                   <p className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
                     Receipt
                   </p>
-                  {preview ? (
+                  {preview?.ok ? (
                     <span className="rounded-full bg-background/80 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground ring-1 ring-border">
                       {formatMoney(preview.totalCents)}
                     </span>
@@ -369,6 +400,7 @@ export function SellForm({ initialProducts }) {
                   <div className="grid gap-3">
                     {cart.map((line) => {
                       const product = productsById.get(line.productId);
+                      const step = packStepFor(line.productId);
                       return (
                         <div
                           key={line.productId}
@@ -381,6 +413,7 @@ export function SellForm({ initialProducts }) {
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {product?.categoryName ?? "—"}
+                                {step > 1 ? ` · packs of ${step}` : ""}
                               </p>
                             </div>
                             <Button
@@ -401,15 +434,15 @@ export function SellForm({ initialProducts }) {
                               size="icon"
                               className="size-10 shrink-0 rounded-full"
                               aria-label="Decrease quantity"
-                              disabled={saleMutation.isPending || line.quantity <= 1}
+                              disabled={saleMutation.isPending || line.quantity <= step}
                               onClick={() => bumpLine(line.productId, -1)}
                             >
                               <MinusIcon className="size-4" />
                             </Button>
                             <input
                               type="number"
-                              min={1}
-                              step={1}
+                              min={step}
+                              step={step}
                               className="h-10 w-full min-w-0 rounded-xl border border-input bg-background text-center text-lg font-medium tabular-nums"
                               value={line.quantity}
                               disabled={saleMutation.isPending}
@@ -433,19 +466,49 @@ export function SellForm({ initialProducts }) {
                       );
                     })}
 
-                    {preview ? (
+                    {preview && !preview.ok ? (
+                      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-3 py-3 text-sm text-destructive">
+                        {preview.reason}
+                      </div>
+                    ) : null}
+
+                    {preview?.ok ? (
                       <div className="grid gap-0 overflow-hidden rounded-2xl border border-[#e8ddd0] bg-[#fffdf9] text-sm shadow-sm">
                         <div className="border-b border-dashed border-[#e5d7c8] px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
                           Summary
                         </div>
                         <div className="grid gap-3 px-3 py-3">
                           {preview.packs.map((pack) => (
-                            <div key={pack.categoryId} className="grid gap-1.5">
+                            <div key={`w-${pack.categoryId}`} className="grid gap-1.5">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex min-w-0 items-center gap-2">
-                                  <StatusPill tone="info">Pack</StatusPill>
+                                  <StatusPill tone="info">Wholesale</StatusPill>
                                   <span className="truncate font-medium">
                                     {pack.categoryName} ×{pack.packCount}
+                                  </span>
+                                </div>
+                                <span className="shrink-0 font-semibold tabular-nums">
+                                  {formatMoney(pack.totalCents)}
+                                </span>
+                              </div>
+                              <ul className="space-y-0.5 text-xs text-muted-foreground">
+                                {pack.contributions.map((c) => (
+                                  <li key={c.productId}>
+                                    {c.productName} ×{c.quantity}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+
+                          {(preview.retailPacks ?? []).map((pack) => (
+                            <div key={`r-${pack.categoryId}`} className="grid gap-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <StatusPill tone="info">Retail pack</StatusPill>
+                                  <span className="truncate font-medium">
+                                    {pack.categoryName} ×{pack.packCount} (
+                                    {pack.packQty} ea)
                                   </span>
                                 </div>
                                 <span className="shrink-0 font-semibold tabular-nums">
@@ -509,12 +572,14 @@ export function SellForm({ initialProducts }) {
                   type="button"
                   size="lg"
                   className="h-11 min-w-40 text-base"
-                  disabled={saleMutation.isPending || cart.length === 0}
+                  disabled={
+                    saleMutation.isPending || cart.length === 0 || (preview && !preview.ok)
+                  }
                   onClick={onConfirm}
                 >
                   {saleMutation.isPending
                     ? "Recording…"
-                    : preview
+                    : preview?.ok
                       ? `Confirm · ${formatMoney(preview.totalCents)}`
                       : "Confirm sale"}
                 </Button>
