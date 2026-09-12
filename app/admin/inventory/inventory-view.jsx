@@ -43,6 +43,7 @@ import { filterByQuery, filterTriggerClassName } from "@/lib/table-filter";
 import {
   fetchInventoryHealthAction,
   fetchMonthInventoryAction,
+  fetchRecentReceivesAction,
   receiveStockAction,
 } from "./actions";
 
@@ -65,13 +66,18 @@ const FILTER_ITEMS = [
   { value: "needs", label: "Needs replenishment" },
 ];
 
-function todayLocalInput() {
+const receivedAtFormatter = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function nowLocalDateTimeInput() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function InventoryView({ initialHealth, initialMonth }) {
+export function InventoryView({ initialHealth, initialMonth, initialReceives = [] }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -90,6 +96,12 @@ export function InventoryView({ initialHealth, initialMonth }) {
     initialData: initialMonth,
   });
 
+  const { data: receives } = useQuery({
+    queryKey: [...queryKeys.inventoryReceives, initialMonth.monthKey],
+    queryFn: () => fetchRecentReceivesAction(initialMonth.monthKey),
+    initialData: initialReceives,
+  });
+
   const receiveMutation = useMutation({
     mutationFn: (formData) => receiveStockAction(formData),
     onSuccess: async (res) => {
@@ -100,6 +112,7 @@ export function InventoryView({ initialHealth, initialMonth }) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.inventoryHealth }),
         queryClient.invalidateQueries({ queryKey: queryKeys.inventoryMonth }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventoryReceives }),
         queryClient.invalidateQueries({ queryKey: queryKeys.products }),
       ]);
       toast.success("Stock received.");
@@ -267,6 +280,53 @@ export function InventoryView({ initialHealth, initialMonth }) {
         />
       </div>
 
+      <div className="mt-6 overflow-hidden rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-medium text-foreground">Receives this month</h2>
+          <p className="text-xs text-muted-foreground">
+            Who received stock into the shop — attendants and admins.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>When</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead>Received by</TableHead>
+                <TableHead>Reason</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(receives ?? []).length === 0 ? (
+                <TableEmptyRow colSpan={5} message="No receives logged this month." />
+              ) : (
+                (receives ?? []).map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {row.createdAt
+                        ? receivedAtFormatter.format(new Date(row.createdAt))
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {row.productName ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      +{row.quantityDelta ?? 0}
+                    </TableCell>
+                    <TableCell>{row.createdByName ?? "—"}</TableCell>
+                    <TableCell className="max-w-[14rem] truncate text-muted-foreground">
+                      {row.reason ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
       <Dialog open={receiveOpen} onOpenChange={(open) => !open && setReceiveOpen(false)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -306,12 +366,12 @@ export function InventoryView({ initialHealth, initialMonth }) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="receive-date">Date</Label>
+                <Label htmlFor="receive-date">Received at</Label>
                 <Input
                   id="receive-date"
                   name="receivedAt"
-                  type="date"
-                  defaultValue={todayLocalInput()}
+                  type="datetime-local"
+                  defaultValue={nowLocalDateTimeInput()}
                 />
               </div>
             </div>

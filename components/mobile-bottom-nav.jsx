@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboardIcon, ReceiptTextIcon, WalletIcon } from "lucide-react";
+import {
+  LayoutDashboardIcon,
+  ReceiptTextIcon,
+  WalletIcon,
+  WarehouseIcon,
+} from "lucide-react";
 
 import { USER_NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -10,6 +15,7 @@ import { cn } from "@/lib/utils";
 const ICONS = {
   "/dashboard": LayoutDashboardIcon,
   "/dashboard/sales": ReceiptTextIcon,
+  "/dashboard/inventory": WarehouseIcon,
   "/dashboard/expenses": WalletIcon,
 };
 
@@ -31,7 +37,7 @@ export function MobileBottomNav({ role }) {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <ul className="grid h-14 grid-cols-3">
+      <ul className="grid h-14 grid-cols-4">
         {USER_NAV.map((item) => {
           const Icon = ICONS[item.href] ?? LayoutDashboardIcon;
           const active = item.href === activeHref;

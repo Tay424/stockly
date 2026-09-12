@@ -47,6 +47,7 @@ const NAV_ICONS = {
   "/admin/accounts": ScaleIcon,
   "/dashboard": ShoppingCartIcon,
   "/dashboard/sales": ReceiptTextIcon,
+  "/dashboard/inventory": WarehouseIcon,
   "/dashboard/expenses": WalletIcon,
 };
 
