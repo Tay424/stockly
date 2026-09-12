@@ -33,9 +33,9 @@ export default async function DashboardPage() {
           hint={`${stats.today.saleCount} sales · ${stats.today.unitsSold} units`}
         />
         <StatCard
-          value={formatMoney(stats.month.revenueCents)}
-          label="You sold this month"
-          hint={`${stats.month.saleCount} sales · ${stats.month.unitsSold} units`}
+          value={formatMoney(stats.week.revenueCents)}
+          label="You sold this week"
+          hint={`${stats.week.saleCount} sales · ${stats.week.unitsSold} units`}
         />
         <StatCard
           value={formatMoney(stats.expensesThisMonth.amountCents)}
