@@ -34,10 +34,16 @@ import { filterByQuery } from "@/lib/table-filter";
 
 import { deleteCategoryAction, fetchCategoriesAction, saveCategoryAction } from "./actions";
 
-function packLabel(category) {
+function wholesalePackLabel(category) {
   const qty = category.wholesalePackQty ?? 0;
   if (qty <= 0) return "Off";
   return `${qty} @ ${formatMoney(category.wholesalePackPriceCents ?? 0)}`;
+}
+
+function retailPackLabel(category) {
+  const qty = category.retailPackQty ?? 0;
+  if (qty <= 0) return "Off";
+  return `${qty} @ ${formatMoney(category.retailPackPriceCents ?? 0)}`;
 }
 
 function toAmount(cents) {
@@ -135,6 +141,7 @@ export function CategoriesTable({ initialCategories }) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Retail pack</TableHead>
                 <TableHead>Wholesale pack</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -142,7 +149,7 @@ export function CategoriesTable({ initialCategories }) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={4}
+                  colSpan={5}
                   message={search ? "No categories match your search." : "No categories yet."}
                 />
               ) : (
@@ -153,7 +160,10 @@ export function CategoriesTable({ initialCategories }) {
                       {category.description || "—"}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {packLabel(category)}
+                      {retailPackLabel(category)}
+                    </TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {wholesalePackLabel(category)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -196,8 +206,9 @@ export function CategoriesTable({ initialCategories }) {
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit category" : "New category"}</DialogTitle>
             <DialogDescription>
-              Optional wholesale pack: complete blocks of N units charge the pack price on Sales
-              receipts (leftover units stay retail). Leave pack quantity at 0 to turn packs off.
+              Retail packs (e.g. 3 for $10) force Sales to sell only in that pack size. Wholesale
+              packs still use units and must be a multiple of the retail pack when both are on.
+              Leave a pack quantity at 0 to turn that pack off.
             </DialogDescription>
           </DialogHeader>
           {/* Remount when switching create/edit so uncontrolled defaultValues stay in sync. */}
@@ -226,6 +237,37 @@ export function CategoriesTable({ initialCategories }) {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
+                <Label htmlFor="category-retail-pack-qty">Retail pack qty</Label>
+                <Input
+                  id="category-retail-pack-qty"
+                  name="retailPackQty"
+                  type="number"
+                  min={0}
+                  step={1}
+                  defaultValue={editing?.retailPackQty ?? 0}
+                />
+                <p className="text-xs text-muted-foreground">
+                  e.g. 3 for $10 — units only sell in that pack; wholesale pack size must be a
+                  multiple of this. 0 = sell as ones.
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="category-retail-pack-price">Retail pack price</Label>
+                <Input
+                  id="category-retail-pack-price"
+                  name="retailPackPrice"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  defaultValue={
+                    editing?.id ? toAmount(editing.retailPackPriceCents) : "10.00"
+                  }
+                />
+                <p className="text-xs text-muted-foreground">Charged per retail pack (e.g. $10).</p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
                 <Label htmlFor="category-pack-qty">Wholesale pack qty</Label>
                 <Input
                   id="category-pack-qty"
@@ -235,10 +277,12 @@ export function CategoriesTable({ initialCategories }) {
                   step={1}
                   defaultValue={editing?.wholesalePackQty ?? 0}
                 />
-                <p className="text-xs text-muted-foreground">0 = no packs for this category.</p>
+                <p className="text-xs text-muted-foreground">
+                  Units per wholesale pack. Must be a multiple of retail pack qty when both are on.
+                </p>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="category-pack-price">Pack price</Label>
+                <Label htmlFor="category-pack-price">Wholesale pack price</Label>
                 <Input
                   id="category-pack-price"
                   name="wholesalePackPrice"
@@ -250,7 +294,7 @@ export function CategoriesTable({ initialCategories }) {
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  Charged per complete pack (e.g. 20 @ $80).
+                  Charged per complete wholesale pack (e.g. 30 @ $80).
                 </p>
               </div>
             </div>

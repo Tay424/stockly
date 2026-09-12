@@ -23,11 +23,13 @@ export default async function SaleInvoicePage({ params }) {
   }
 
   const packs = Array.isArray(sale.packs) ? sale.packs : [];
+  const retailPacks = Array.isArray(sale.retailPacks) ? sale.retailPacks : [];
   const retailLines = Array.isArray(sale.retailLines) ? sale.retailLines : [];
-  const isLegacy = packs.length === 0 && retailLines.length === 0;
+  const isLegacy = packs.length === 0 && retailPacks.length === 0 && retailLines.length === 0;
   const voided = sale.status === SALE_STATUS.voided;
   const shortId = String(sale.id).slice(-8).toUpperCase();
-  const lineCount = (packs.length + retailLines.length) || (isLegacy ? 1 : 0);
+  const lineCount =
+    (packs.length + retailPacks.length + retailLines.length) || (isLegacy ? 1 : 0);
 
   const shareText = [
     `Stockly receipt #${shortId}`,
@@ -129,12 +131,41 @@ export default async function SaleInvoicePage({ params }) {
 
               <ul className="divide-y divide-dashed divide-[#e5d7c8]">
                 {packs.map((pack) => (
-                  <li key={pack.categoryId ?? pack.categoryName} className="py-3.5">
+                  <li key={`w-${pack.categoryId ?? pack.categoryName}`} className="py-3.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-medium text-foreground">{pack.categoryName} pack</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           Wholesale ×{pack.packCount}
+                        </p>
+                        {(pack.contributions ?? []).length > 0 ? (
+                          <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                            {pack.contributions.map((c) => (
+                              <li key={c.productId}>
+                                {c.productName} ×{c.quantity}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                      <p className="shrink-0 font-semibold tabular-nums text-foreground">
+                        {formatMoney(pack.totalCents)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+
+                {retailPacks.map((pack) => (
+                  <li key={`r-${pack.categoryId ?? pack.categoryName}`} className="py-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{pack.categoryName} pack</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Retail pack ×{pack.packCount}
+                          {pack.packQty ? ` (${pack.packQty} units each)` : ""}
+                          {pack.packPriceCents != null
+                            ? ` · ${formatMoney(pack.packPriceCents)} each`
+                            : ""}
                         </p>
                         {(pack.contributions ?? []).length > 0 ? (
                           <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
