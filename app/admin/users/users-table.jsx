@@ -35,21 +35,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTablePagination } from "@/hooks/use-table-pagination";
+import { useSession } from "@/lib/auth-client";
 import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery } from "@/lib/table-filter";
-import { useSession } from "@/lib/auth-client";
 
 import {
   createUserAction,
   fetchUsersAction,
   removeUserAction,
   resetUserPasswordAction,
+  setUserRoleAction,
 } from "./actions";
 
-const CREATE_ROLE_ITEMS = [
+const ROLE_ITEMS = [
   { value: "user", label: "Attendant" },
   { value: "admin", label: "Admin" },
 ];
+const CREATE_ROLE_ITEMS = ROLE_ITEMS;
+
+function roleValue(user) {
+  return user.role === "admin" ? "admin" : "user";
+}
 
 function CopyPasswordButton({ password }) {
   const [copied, setCopied] = useState(false);
@@ -180,6 +186,20 @@ export function UsersTable({ initialUsers }) {
     onError: () => toast.error("Something went wrong. Try again."),
   });
 
+  const roleMutation = useMutation({
+    mutationFn: ({ id, role }) => setUserRoleAction(id, role),
+    onSettled: () => setBusyId(null),
+    onSuccess: async (res, { role }) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      await refresh();
+      toast.success(role === "admin" ? "User promoted to admin." : "User set as attendant.");
+    },
+    onError: () => toast.error("Something went wrong. Try again."),
+  });
+
   const filtered = useMemo(
     () =>
       filterByQuery(users, search, (u) => `${u.name} ${u.email} ${u.role ?? ""}`),
@@ -211,6 +231,22 @@ export function UsersTable({ initialUsers }) {
     }
     setBusyId(user.id);
     deleteMutation.mutate(user.id);
+  }
+
+  function onSetRole(user, role) {
+    if (role === roleValue(user)) return;
+
+    const label = role === "admin" ? "admin" : "attendant";
+    const extra =
+      role === "user" && user.role === "admin"
+        ? " Their admin sessions will be signed out."
+        : "";
+    if (!window.confirm(`Make ${user.name} an ${label}?${extra}`)) {
+      return;
+    }
+
+    setBusyId(user.id);
+    roleMutation.mutate({ id: user.id, role });
   }
 
   return (
@@ -256,14 +292,33 @@ export function UsersTable({ initialUsers }) {
               ) : (
                 paginated.map((user) => {
                   const isSelf = user.id === currentUserId;
+                  const currentRole = roleValue(user);
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium text-foreground">{user.name}</TableCell>
                       <TableCell className="text-muted-foreground">{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                          {user.role === "admin" ? "Admin" : "Attendant"}
-                        </Badge>
+                        {isSelf ? (
+                          <Badge variant="default">Admin</Badge>
+                        ) : (
+                          <Select
+                            value={currentRole}
+                            items={ROLE_ITEMS}
+                            onValueChange={(role) => onSetRole(user, role)}
+                            disabled={busyId === user.id || roleMutation.isPending}
+                          >
+                            <SelectTrigger
+                              className="h-8 w-[8.5rem]"
+                              aria-label={`Role for ${user.name}`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">Attendant</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
                       <TableCell>
                         {user.mustChangePassword ? (
@@ -273,7 +328,9 @@ export function UsersTable({ initialUsers }) {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {user.role === "admin" || isSelf ? (
+                        {isSelf ? (
+                          <span className="text-xs text-muted-foreground">You</span>
+                        ) : currentRole === "admin" ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           <div className="flex justify-end gap-1">
