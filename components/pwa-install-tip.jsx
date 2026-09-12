@@ -88,7 +88,8 @@ export function PwaInstallTip({ elevated = false }) {
 
   return (
     <div
-      className="fixed inset-x-3 z-50 rounded-xl border border-border bg-card p-3 shadow-lg md:hidden"
+      data-app-chrome="install-tip"
+      className="fixed inset-x-3 z-50 rounded-xl border border-border bg-card p-3 shadow-lg print:hidden md:hidden"
       style={{
         bottom: elevated
           ? "calc(3.75rem + env(safe-area-inset-bottom, 0px))"
