@@ -10,8 +10,10 @@ import {
   ReceiptTextIcon,
   ScaleIcon,
   ShoppingCartIcon,
+  TruckIcon,
   UsersIcon,
   WalletIcon,
+  WarehouseIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,14 +37,17 @@ import { cn } from "@/lib/utils";
 const NAV_ICONS = {
   "/admin/dashboard": LayoutDashboardIcon,
   "/admin/products": PackageIcon,
+  "/admin/inventory": WarehouseIcon,
   "/admin/categories": LayersIcon,
   "/admin/users": UsersIcon,
   "/admin/sales": ReceiptTextIcon,
+  "/admin/distributors": TruckIcon,
   "/admin/integrity": ClipboardCheckIcon,
   "/admin/expenses": WalletIcon,
   "/admin/accounts": ScaleIcon,
   "/dashboard": ShoppingCartIcon,
   "/dashboard/sales": ReceiptTextIcon,
+  "/dashboard/inventory": WarehouseIcon,
   "/dashboard/expenses": WalletIcon,
 };
 

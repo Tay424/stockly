@@ -44,12 +44,17 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  render,
+  nativeButton,
   ...props
 }) {
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      render={render}
+      // Links/anchors via `render` are not native <button>s — Base UI warns unless this is false.
+      nativeButton={nativeButton ?? (render == null ? undefined : false)}
       {...props} />
   );
 }

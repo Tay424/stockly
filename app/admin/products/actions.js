@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createProduct, deleteProduct, listProducts, updateProduct } from "@/lib/catalog";
 import { parseMoneyToCents } from "@/lib/pricing";
+import { storeProductImage } from "@/lib/receipts";
 import { requireAdmin } from "@/lib/session";
 
 export async function fetchProductsAction() {
@@ -24,10 +25,9 @@ function readForm(formData) {
   const description = String(formData.get("description") ?? "").trim();
   const categoryId = String(formData.get("categoryId") ?? "").trim();
   const retailPriceCents = parseMoneyToCents(formData.get("retailPrice"));
-  const wholesalePriceCents = parseMoneyToCents(formData.get("wholesalePrice"));
-  const wholesaleMinQty = Number(formData.get("wholesaleMinQty"));
   const stock = Number(formData.get("stock") ?? 0);
   const stockReason = String(formData.get("stockReason") ?? "").trim();
+  const lowStockThreshold = Number(formData.get("lowStockThreshold") ?? 5);
   const discountPercent = Number(formData.get("discountPercent") ?? 0);
   const discountStartsAt = readDate(formData.get("discountStartsAt"));
   const discountEndsAt = readDate(formData.get("discountEndsAt"));
@@ -35,15 +35,11 @@ function readForm(formData) {
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Pick a category." };
   if (retailPriceCents === null) return { error: "Retail price must be a valid amount." };
-  if (wholesalePriceCents === null) return { error: "Wholesale price must be a valid amount." };
-  if (!Number.isInteger(wholesaleMinQty) || wholesaleMinQty < 0) {
-    return { error: "Wholesale quantity must be a whole number." };
-  }
   if (!Number.isInteger(stock) || stock < 0) {
     return { error: "Stock must be a whole number." };
   }
-  if (wholesaleMinQty > 0 && wholesalePriceCents > retailPriceCents) {
-    return { error: "Wholesale price should not be higher than the retail price." };
+  if (!Number.isInteger(lowStockThreshold) || lowStockThreshold < 0) {
+    return { error: "Low stock threshold must be a whole number of 0 or more." };
   }
   if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
     return { error: "Discount must be between 0 and 100." };
@@ -64,9 +60,8 @@ function readForm(formData) {
       description,
       categoryId,
       retailPriceCents,
-      wholesalePriceCents,
-      wholesaleMinQty,
       stock,
+      lowStockThreshold,
       // A 0% discount clears the window rather than leaving orphaned dates.
       discountPercent: discountPercent > 0 ? discountPercent : 0,
       discountStartsAt: discountPercent > 0 ? discountStartsAt : null,
@@ -78,6 +73,7 @@ function readForm(formData) {
 
 function revalidateStockPaths() {
   revalidatePath("/admin/products");
+  revalidatePath("/admin/inventory");
   revalidatePath("/admin/integrity");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/sales");
@@ -89,6 +85,21 @@ export async function saveProductAction(id, formData) {
   const { error, fields, stockReason } = readForm(formData);
   if (error) return { error };
 
+  const file = formData.get("image");
+  const hasNewFile =
+    file && typeof file === "object" && "arrayBuffer" in file && Number(file.size) > 0;
+
+  if (hasNewFile) {
+    const stored = await storeProductImage(file);
+    if (!stored.ok) return { error: stored.reason };
+    if (stored.image) {
+      fields.imageUrl = stored.image.url;
+      fields.imageKey = stored.image.key;
+      fields.imageMime = stored.image.mime;
+      fields.imageName = stored.image.name;
+    }
+  }
+
   const actor = { id: user.id, name: user.name };
 
   if (id) {
@@ -97,6 +108,12 @@ export async function saveProductAction(id, formData) {
   } else {
     if (fields.stock > 0 && !stockReason) {
       return { error: "A reason is required when setting initial stock." };
+    }
+    if (!fields.imageUrl) {
+      fields.imageUrl = null;
+      fields.imageKey = null;
+      fields.imageMime = null;
+      fields.imageName = null;
     }
     await createProduct(fields, { actor, stockReason });
   }

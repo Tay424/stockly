@@ -11,9 +11,11 @@ import { requireAdmin } from "@/lib/session";
 function readCreateForm(formData) {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const roleRaw = String(formData.get("role") ?? "user").trim();
+  const role = roleRaw === "admin" ? "admin" : "user";
   if (!name) return { error: "Name is required." };
   if (!email || !email.includes("@")) return { error: "A valid email is required." };
-  return { fields: { name, email } };
+  return { fields: { name, email, role } };
 }
 
 /** Map Better Auth / API errors into a short toast message. */
@@ -43,7 +45,7 @@ export async function fetchUsersAction() {
 }
 
 /**
- * Create an attendant account with a generated temporary password.
+ * Create an attendant or admin account with a generated temporary password.
  * Returns the plaintext password once so the admin can hand it over.
  */
 export async function createUserAction(formData) {
@@ -60,7 +62,7 @@ export async function createUserAction(formData) {
         name: fields.name,
         email: fields.email,
         password: temporaryPassword,
-        role: "user",
+        role: fields.role,
         data: { mustChangePassword: true, emailVerified: true },
       },
       headers: await headers(),

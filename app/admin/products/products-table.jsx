@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, PercentIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { StatusPill } from "@/components/status-pill";
@@ -39,6 +39,7 @@ import { useTablePagination } from "@/hooks/use-table-pagination";
 import { discountStatus, formatMoney } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery, filterTriggerClassName } from "@/lib/table-filter";
+import { cn } from "@/lib/utils";
 
 import { fetchCategoriesAction } from "../categories/actions";
 import { deleteProductAction, fetchProductsAction, saveProductAction } from "./actions";
@@ -84,6 +85,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
   const [editing, setEditing] = useState(null); // null = closed, {} = new
   const [formCategoryId, setFormCategoryId] = useState("");
   const [formStock, setFormStock] = useState(0);
+  const [discountOpen, setDiscountOpen] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   const { data: products } = useQuery({
@@ -150,6 +152,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
   function openForm(product) {
     setFormCategoryId(product?.categoryId ?? "");
     setFormStock(product?.stock ?? 0);
+    setDiscountOpen((product?.discountPercent ?? 0) > 0);
     setEditing(product ?? {});
   }
 
@@ -215,11 +218,10 @@ export function ProductsTable({ initialCategories, initialProducts }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-14">Image</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Retail</TableHead>
-                <TableHead className="text-right">Wholesale</TableHead>
-                <TableHead>Price tier</TableHead>
                 <TableHead>Discount</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -228,7 +230,7 @@ export function ProductsTable({ initialCategories, initialProducts }) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={8}
+                  colSpan={7}
                   message={
                     search || categoryFilter !== "all"
                       ? "No products match your filters."
@@ -238,6 +240,20 @@ export function ProductsTable({ initialCategories, initialProducts }) {
               ) : (
                 paginated.map((product) => (
                   <TableRow key={product.id}>
+                    <TableCell>
+                      {product.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={product.imageUrl}
+                          alt=""
+                          className="size-10 rounded-md object-cover"
+                        />
+                      ) : (
+                        <span className="flex size-10 items-center justify-center rounded-md bg-muted text-[10px] text-muted-foreground">
+                          —
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium text-foreground">
                       {product.name}
                       {product.description ? (
@@ -251,14 +267,6 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatMoney(product.retailPriceCents)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(product.wholesalePriceCents)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {product.wholesaleMinQty > 0
-                        ? `${product.wholesaleMinQty}+ units`
-                        : "Retail only"}
                     </TableCell>
                     <TableCell>
                       <DiscountCell product={product} />
@@ -306,8 +314,8 @@ export function ProductsTable({ initialCategories, initialProducts }) {
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit product" : "New product"}</DialogTitle>
             <DialogDescription>
-              Sales use the retail price until the buyer hits the wholesale quantity, then any
-              active discount comes off.
+              Set the retail unit price here. Wholesale applies only via category packs (Categories
+              → pack qty and pack price) when a receipt hits those quantities.
             </DialogDescription>
           </DialogHeader>
           {/* Remount when switching create/edit/product so uncontrolled defaultValues stay in sync. */}
@@ -329,6 +337,32 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                 rows={2}
                 defaultValue={editing?.description ?? ""}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="product-image">Product image</Label>
+              {editing?.imageUrl ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={editing.imageUrl}
+                    alt=""
+                    className="size-16 rounded-lg object-cover"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Current image. Upload a new file to replace it.
+                  </p>
+                </div>
+              ) : null}
+              <Input
+                id="product-image"
+                name="image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional JPEG, PNG, or WebP (max 4MB). Shown as tiles on the Sales receipt picker.
+              </p>
             </div>
 
             <div className="grid gap-2">
@@ -365,36 +399,6 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="product-wholesale">Wholesale price</Label>
-                <Input
-                  id="product-wholesale"
-                  name="wholesalePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={editing?.id ? toAmount(editing.wholesalePriceCents) : ""}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="product-min-qty">Wholesale from (qty)</Label>
-                <Input
-                  id="product-min-qty"
-                  name="wholesaleMinQty"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={editing?.wholesaleMinQty ?? 0}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Buy this many or more and the price drops to wholesale. 0 disables it.
-                </p>
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="product-stock">Stock on hand</Label>
                 <Input
                   id="product-stock"
@@ -407,6 +411,23 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                   required
                 />
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="product-low-stock">Low stock at</Label>
+              <Input
+                id="product-low-stock"
+                name="lowStockThreshold"
+                type="number"
+                min="0"
+                step="1"
+                defaultValue={editing?.lowStockThreshold ?? 5}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Status turns Low when on hand reaches this number (default 5). Use Inventory to
+                receive replenishment.
+              </p>
             </div>
 
             {(() => {
@@ -436,45 +457,76 @@ export function ProductsTable({ initialCategories, initialProducts }) {
               );
             })()}
 
-            <fieldset className="grid gap-4 rounded-lg border border-border p-4">
-              <legend className="px-1 text-sm font-medium">Discount</legend>
-              <div className="grid gap-2">
-                <Label htmlFor="product-discount">Percent off</Label>
-                <Input
-                  id="product-discount"
-                  name="discountPercent"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  defaultValue={editing?.discountPercent ?? 0}
+            <div className="grid gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-between"
+                aria-expanded={discountOpen}
+                onClick={() => setDiscountOpen((open) => !open)}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <PercentIcon className="size-4" />
+                  Discount
+                  {(editing?.discountPercent ?? 0) > 0 ? (
+                    <StatusPill tone="success">{editing.discountPercent}% off</StatusPill>
+                  ) : null}
+                </span>
+                <ChevronDownIcon
+                  className={cn(
+                    "size-4 text-muted-foreground transition-transform",
+                    discountOpen && "rotate-180",
+                  )}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Comes off whichever price applies — retail or wholesale. 0 means no discount.
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              </Button>
+
+              {/* Keep fields mounted while collapsed so values still submit / persist. */}
+              <fieldset
+                className={cn(
+                  "grid gap-4 rounded-lg border border-border p-4",
+                  !discountOpen && "hidden",
+                )}
+              >
+                <legend className="sr-only">Discount details</legend>
                 <div className="grid gap-2">
-                  <Label htmlFor="product-discount-start">Starts</Label>
+                  <Label htmlFor="product-discount">Percent off</Label>
                   <Input
-                    id="product-discount-start"
-                    name="discountStartsAt"
-                    type="datetime-local"
-                    defaultValue={toLocalInputValue(editing?.discountStartsAt)}
+                    id="product-discount"
+                    name="discountPercent"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    defaultValue={editing?.discountPercent ?? 0}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Percent off the retail unit price. 0 means no discount. Not applied on Sales
+                    receipt leftovers.
+                  </p>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="product-discount-end">Ends</Label>
-                  <Input
-                    id="product-discount-end"
-                    name="discountEndsAt"
-                    type="datetime-local"
-                    defaultValue={toLocalInputValue(editing?.discountEndsAt)}
-                  />
-                  <p className="text-xs text-muted-foreground">Leave empty to run indefinitely.</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="product-discount-start">Starts</Label>
+                    <Input
+                      id="product-discount-start"
+                      name="discountStartsAt"
+                      type="datetime-local"
+                      defaultValue={toLocalInputValue(editing?.discountStartsAt)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="product-discount-end">Ends</Label>
+                    <Input
+                      id="product-discount-end"
+                      name="discountEndsAt"
+                      type="datetime-local"
+                      defaultValue={toLocalInputValue(editing?.discountEndsAt)}
+                    />
+                    <p className="text-xs text-muted-foreground">Leave empty to run indefinitely.</p>
+                  </div>
                 </div>
-              </div>
-            </fieldset>
+              </fieldset>
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>

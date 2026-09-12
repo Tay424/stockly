@@ -9,16 +9,16 @@ export default async function MySalesPage() {
   const { user } = await requireUser();
   const [products, sales] = await Promise.all([
     listSellableProducts(),
-    listSalesBySeller(user.id, 500),
+    listSalesBySeller(user.id, 500, { sinceHours: 24 }),
   ]);
 
   return (
     <>
       <PageHeader
         title="Sales"
-        description="Record a sale as it happens — stock updates automatically. Your history is below."
+        description="Open a receipt, add products by category, and confirm — stock updates automatically. Your list shows sales from the last 24 hours only."
       />
-      <div className="mb-8 max-w-md">
+      <div className="mb-8">
         <SellForm initialProducts={products} />
       </div>
       <MySalesTable initialSales={sales} />

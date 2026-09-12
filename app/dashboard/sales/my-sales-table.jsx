@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -87,7 +88,11 @@ export function MySalesTable({ initialSales }) {
   });
 
   const filtered = useMemo(() => {
-    let rows = filterByQuery(sales, search, (s) => s.productName ?? "");
+    let rows = filterByQuery(
+      sales,
+      search,
+      (s) => `${s.productName ?? ""} ${s.clientName ?? ""} ${s.clientPhone ?? ""}`,
+    );
     if (tierFilter === "retail") rows = rows.filter((s) => !s.wholesale);
     if (tierFilter === "wholesale") rows = rows.filter((s) => s.wholesale);
     if (tierFilter === "discounted") rows = rows.filter((s) => s.discountPercent > 0);
@@ -172,7 +177,7 @@ export function MySalesTable({ initialSales }) {
                 message={
                   search || tierFilter !== "all"
                     ? "No sales match your filters."
-                    : "You have not recorded any sales yet."
+                    : "No sales in the last 24 hours."
                 }
               />
             ) : (
@@ -181,7 +186,7 @@ export function MySalesTable({ initialSales }) {
                   <TableCell className="font-medium text-foreground">{sale.productName}</TableCell>
                   <TableCell className="text-right tabular-nums">{sale.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(sale.unitPriceCents)}
+                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents)}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1.5">
@@ -205,22 +210,31 @@ export function MySalesTable({ initialSales }) {
                     {sale.createdAt ? dateFormatter.format(new Date(sale.createdAt)) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    {canRequestVoid(sale) ? (
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setVoidReason("");
-                          setVoidTarget(sale);
-                        }}
+                        render={
+                          <Link href={`/dashboard/sales/${sale.id}/invoice`} target="_blank" />
+                        }
                       >
-                        Request void
+                        Invoice
                       </Button>
-                    ) : sale.status === SALE_STATUS.voidRequested ? (
-                      <span className="text-xs text-muted-foreground">Awaiting admin</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                      {canRequestVoid(sale) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setVoidReason("");
+                            setVoidTarget(sale);
+                          }}
+                        >
+                          Request void
+                        </Button>
+                      ) : sale.status === SALE_STATUS.voidRequested ? (
+                        <span className="text-xs text-muted-foreground">Awaiting admin</span>
+                      ) : null}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -259,8 +273,11 @@ export function MySalesTable({ initialSales }) {
               <p className="text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{voidTarget.productName}</span>
                 {" · "}
-                {voidTarget.quantity} × {formatMoney(voidTarget.unitPriceCents)} ={" "}
+                {voidTarget.quantity} unit{voidTarget.quantity === 1 ? "" : "s"} ·{" "}
                 {formatMoney(voidTarget.totalCents)}
+                {Array.isArray(voidTarget.lines) && voidTarget.lines.length > 1
+                  ? ` · ${voidTarget.lines.length} lines`
+                  : ""}
               </p>
               <div className="grid gap-2">
                 <Label htmlFor="void-reason">Reason</Label>

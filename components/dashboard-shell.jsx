@@ -3,20 +3,50 @@
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { AppSidebar } from "./app-sidebar";
+import { MobileBottomNav } from "./mobile-bottom-nav";
+import { PwaInstallTip } from "./pwa-install-tip";
 import { UserAccountMenu } from "./user-account-menu";
 
 export function DashboardShell({ children, role, user, badges }) {
+  const attendant = role === "user";
+
   return (
     <SidebarProvider>
       <AppSidebar role={role} badges={badges} />
       <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:px-6">
-          <SidebarTrigger className="text-muted-foreground md:hidden" />
+        <header
+          className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:h-16 md:px-6"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
+          {/* Attendants use bottom nav on phones; keep sidebar trigger for admin. */}
+          <SidebarTrigger
+            className={
+              attendant
+                ? "hidden text-muted-foreground md:inline-flex"
+                : "text-muted-foreground md:hidden"
+            }
+          />
           <div className="ml-auto flex items-center gap-1">
             <UserAccountMenu user={user} />
           </div>
         </header>
-        <div className="flex-1 p-4 md:p-8">{children}</div>
+        <div
+          className={
+            attendant
+              ? "flex-1 p-4 pb-24 md:p-8 md:pb-8"
+              : "flex-1 p-4 md:p-8"
+          }
+        >
+          {children}
+        </div>
+        {attendant ? (
+          <>
+            <MobileBottomNav role={role} />
+            <PwaInstallTip elevated />
+          </>
+        ) : (
+          <PwaInstallTip />
+        )}
       </SidebarInset>
     </SidebarProvider>
   );

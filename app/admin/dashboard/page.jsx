@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ChartPanel, HorizontalBarList, VerticalBarChart } from "@/components/charts";
 import { PageHeader } from "@/components/page-header";
+import { ShopBackupButtons } from "@/components/shop-backup-buttons";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +39,7 @@ export default async function AdminDashboardPage() {
       <PageHeader
         title="Dashboard"
         description={`Shop performance for ${charts.periodLabel.toLowerCase()}, with ${formatMonth(stats.month)} context below.`}
+        action={<ShopBackupButtons />}
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
@@ -48,6 +50,18 @@ export default async function AdminDashboardPage() {
           Open Integrity
         </Button>
       </div>
+
+      {(stats.needsAttention ?? 0) > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {stats.needsAttention} product{stats.needsAttention === 1 ? "" : "s"} need
+            replenishment (threshold-aware).
+          </p>
+          <Button variant="outline" size="sm" render={<Link href="/admin/inventory" />}>
+            View Inventory
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -65,7 +79,11 @@ export default async function AdminDashboardPage() {
           label="Profit this month"
           hint="Sales minus expenses"
         />
-        <StatCard value={stats.productCount} label="Products" hint={stockHint} />
+        <StatCard
+          value={stats.productCount}
+          label="Products"
+          hint={stockHint}
+        />
       </div>
 
       <div className="mb-8 grid gap-4 lg:grid-cols-2">

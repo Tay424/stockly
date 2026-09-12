@@ -128,3 +128,10 @@
     @apply font-sans;
   }
 }
+
+/* PWA standalone: respect notches and feel more app-like on phones. */
+@media (display-mode: standalone) {
+  body {
+    min-height: 100dvh;
+  }
+}
