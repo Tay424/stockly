@@ -20,6 +20,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -38,6 +45,11 @@ import {
   removeUserAction,
   resetUserPasswordAction,
 } from "./actions";
+
+const CREATE_ROLE_ITEMS = [
+  { value: "user", label: "Attendant" },
+  { value: "admin", label: "Admin" },
+];
 
 function CopyPasswordButton({ password }) {
   const [copied, setCopied] = useState(false);
@@ -69,7 +81,7 @@ function IssuedPasswordDialog({ issued, onClose }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {issued.kind === "reset" ? "Temporary password reset" : "Attendant created"}
+            {issued.kind === "reset" ? "Temporary password reset" : "User created"}
           </DialogTitle>
           <DialogDescription>
             Share this password with {issued.name || issued.email} now. It will not be shown
@@ -104,6 +116,7 @@ export function UsersTable({ initialUsers }) {
 
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [createRole, setCreateRole] = useState("user");
   const [busyId, setBusyId] = useState(null);
   const [issued, setIssued] = useState(null);
 
@@ -203,9 +216,14 @@ export function UsersTable({ initialUsers }) {
   return (
     <>
       <div className="mb-4 flex justify-end">
-        <Button onClick={() => setCreating(true)}>
+        <Button
+          onClick={() => {
+            setCreateRole("user");
+            setCreating(true);
+          }}
+        >
           <PlusIcon />
-          New attendant
+          New user
         </Button>
       </div>
 
@@ -296,13 +314,18 @@ export function UsersTable({ initialUsers }) {
         />
       </div>
 
-      <Dialog open={creating} onOpenChange={(open) => !open && setCreating(false)}>
+      <Dialog
+        open={creating}
+        onOpenChange={(open) => {
+          if (!open) setCreating(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New attendant</DialogTitle>
+            <DialogTitle>New user</DialogTitle>
             <DialogDescription>
-              A temporary password is generated for you to share. They will set their own
-              password the first time they sign in.
+              Choose Attendant for selling and receiving stock, or Admin for full shop access. A
+              temporary password is generated for you to share; they set their own on first sign-in.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={onCreate} className="grid gap-4">
@@ -319,6 +342,26 @@ export function UsersTable({ initialUsers }) {
                 required
                 autoComplete="off"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="user-role">Role</Label>
+              <Select value={createRole} onValueChange={setCreateRole} items={CREATE_ROLE_ITEMS}>
+                <SelectTrigger id="user-role" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CREATE_ROLE_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="role" value={createRole} />
+              <p className="text-xs text-muted-foreground">
+                Admins can manage stock, users, and accounts. Attendants sell, log expenses, and
+                receive shop stock.
+              </p>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreating(false)}>

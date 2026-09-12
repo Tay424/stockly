@@ -2,36 +2,28 @@
 
 import { revalidatePath } from "next/cache";
 
-import {
-  getMonthInventorySummary,
-  inventoryMonthKey,
-  listInventoryHealth,
-  listStockReceives,
-  parseReceivedAt,
-  receiveStock,
-} from "@/lib/inventory";
-import { requireAdmin } from "@/lib/session";
+import { listProducts } from "@/lib/catalog";
+import { listStockReceives, parseReceivedAt, receiveStock } from "@/lib/inventory";
+import { requireUser } from "@/lib/session";
 
-export async function fetchInventoryHealthAction() {
-  await requireAdmin();
-  return listInventoryHealth();
+export async function fetchReceiveProductsAction() {
+  await requireUser();
+  const products = await listProducts();
+  return products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    stock: p.stock ?? 0,
+    categoryName: p.categoryName ?? null,
+  }));
 }
 
-export async function fetchMonthInventoryAction(monthKey) {
-  await requireAdmin();
-  return getMonthInventorySummary(monthKey || inventoryMonthKey());
+export async function fetchMyReceivesAction() {
+  const session = await requireUser();
+  return listStockReceives({ createdBy: session.user.id, limit: 20 });
 }
 
-export async function fetchRecentReceivesAction(monthKey) {
-  await requireAdmin();
-  return listStockReceives({
-    monthKey: monthKey || inventoryMonthKey(),
-    limit: 25,
-  });
-}
-
-export async function receiveStockAction(formData) {
-  const session = await requireAdmin();
+export async function receiveStockAsAttendantAction(formData) {
+  const session = await requireUser();
   const user = session.user;
 
   const productId = String(formData.get("productId") ?? "").trim();
@@ -54,10 +46,10 @@ export async function receiveStockAction(formData) {
 
   if (!result.ok) return { error: result.reason };
 
+  revalidatePath("/dashboard/inventory");
   revalidatePath("/admin/inventory");
   revalidatePath("/admin/products");
   revalidatePath("/admin/integrity");
   revalidatePath("/admin/dashboard");
-  revalidatePath("/dashboard/inventory");
   return { stock: result.stock };
 }
