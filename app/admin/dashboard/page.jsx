@@ -46,7 +46,7 @@ export default async function AdminDashboardPage() {
         <p className="text-sm text-muted-foreground">
           Integrity stays primary — check movements and voids before leaning on trends.
         </p>
-        <Button variant="outline" size="sm" render={<Link href="/admin/integrity" />}>
+        <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/integrity" />}>
           Open Integrity
         </Button>
       </div>
