@@ -49,10 +49,14 @@ export default async function SaleInvoicePage({ params }) {
         <InvoiceToolbar
           saleId={sale.id}
           shareText={shareText}
+          printTitle={`Receipt #${shortId}`}
           backHref={user.role === "admin" ? "/admin/sales" : "/dashboard/sales"}
         />
 
-        <article className="receipt-paper relative overflow-hidden rounded-3xl border border-[#e8ddd0] bg-[#fffdf9] shadow-[0_18px_50px_-24px_rgba(90,50,20,0.45)] print:rounded-none">
+        <article
+          data-invoice-paper
+          className="receipt-paper relative overflow-hidden rounded-3xl border border-[#e8ddd0] bg-[#fffdf9] shadow-[0_18px_50px_-24px_rgba(90,50,20,0.45)] print:rounded-none"
+        >
           <div className="bg-gradient-to-b from-primary/12 via-primary/5 to-transparent px-6 pb-2 pt-7 sm:px-8">
             <div className="flex flex-col items-center text-center">
               <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary text-lg font-bold tracking-tight text-primary-foreground shadow-sm">
