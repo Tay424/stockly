@@ -111,7 +111,7 @@ function printIsolatedReceipt(title) {
         }),
     ),
   ).then(() => {
-    requestAnimationFrame(() => setTimeout(triggerPrint, 50));
+    requestAnimationFrame(() => setTimeout(triggerPrint, 200));
   });
 }
 
