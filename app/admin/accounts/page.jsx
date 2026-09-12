@@ -1,5 +1,5 @@
-import { ExportDataButton } from "@/components/export-data-button";
 import { PageHeader } from "@/components/page-header";
+import { ShopBackupButtons } from "@/components/shop-backup-buttons";
 import { monthlyAccounts } from "@/lib/finance";
 
 import { AccountsTable } from "./accounts-table";
@@ -11,8 +11,8 @@ export default async function AccountsPage() {
     <>
       <PageHeader
         title="Accounts"
-        description="Sales, expenses and profit for each month. Export a JSON backup to move this shop to another database."
-        action={<ExportDataButton />}
+        description="Sales, expenses and profit for each month. Export or import a JSON backup to move this shop between databases."
+        action={<ShopBackupButtons />}
       />
       <AccountsTable initialMonths={months} />
     </>
