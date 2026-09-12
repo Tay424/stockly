@@ -27,6 +27,7 @@ function readForm(formData) {
   const retailPriceCents = parseMoneyToCents(formData.get("retailPrice"));
   const stock = Number(formData.get("stock") ?? 0);
   const stockReason = String(formData.get("stockReason") ?? "").trim();
+  const lowStockThreshold = Number(formData.get("lowStockThreshold") ?? 5);
   const discountPercent = Number(formData.get("discountPercent") ?? 0);
   const discountStartsAt = readDate(formData.get("discountStartsAt"));
   const discountEndsAt = readDate(formData.get("discountEndsAt"));
@@ -36,6 +37,9 @@ function readForm(formData) {
   if (retailPriceCents === null) return { error: "Retail price must be a valid amount." };
   if (!Number.isInteger(stock) || stock < 0) {
     return { error: "Stock must be a whole number." };
+  }
+  if (!Number.isInteger(lowStockThreshold) || lowStockThreshold < 0) {
+    return { error: "Low stock threshold must be a whole number of 0 or more." };
   }
   if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
     return { error: "Discount must be between 0 and 100." };
@@ -57,6 +61,7 @@ function readForm(formData) {
       categoryId,
       retailPriceCents,
       stock,
+      lowStockThreshold,
       // A 0% discount clears the window rather than leaving orphaned dates.
       discountPercent: discountPercent > 0 ? discountPercent : 0,
       discountStartsAt: discountPercent > 0 ? discountStartsAt : null,
@@ -68,6 +73,7 @@ function readForm(formData) {
 
 function revalidateStockPaths() {
   revalidatePath("/admin/products");
+  revalidatePath("/admin/inventory");
   revalidatePath("/admin/integrity");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/sales");
