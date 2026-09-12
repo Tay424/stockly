@@ -51,6 +51,18 @@ export default async function AdminDashboardPage() {
         </Button>
       </div>
 
+      {(stats.needsAttention ?? 0) > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {stats.needsAttention} product{stats.needsAttention === 1 ? "" : "s"} need
+            replenishment (threshold-aware).
+          </p>
+          <Button variant="outline" size="sm" render={<Link href="/admin/inventory" />}>
+            View Inventory
+          </Button>
+        </div>
+      ) : null}
+
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           value={formatMoney(totals.revenueCents)}
@@ -67,7 +79,11 @@ export default async function AdminDashboardPage() {
           label="Profit this month"
           hint="Sales minus expenses"
         />
-        <StatCard value={stats.productCount} label="Products" hint={stockHint} />
+        <StatCard
+          value={stats.productCount}
+          label="Products"
+          hint={stockHint}
+        />
       </div>
 
       <div className="mb-8 grid gap-4 lg:grid-cols-2">

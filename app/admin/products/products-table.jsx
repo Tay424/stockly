@@ -413,6 +413,23 @@ export function ProductsTable({ initialCategories, initialProducts }) {
               </div>
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="product-low-stock">Low stock at</Label>
+              <Input
+                id="product-low-stock"
+                name="lowStockThreshold"
+                type="number"
+                min="0"
+                step="1"
+                defaultValue={editing?.lowStockThreshold ?? 5}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Status turns Low when on hand reaches this number (default 5). Use Inventory to
+                receive replenishment.
+              </p>
+            </div>
+
             {(() => {
               const originalStock = editing?.id ? (editing.stock ?? 0) : 0;
               const stockChanging = editing?.id
