@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ChartPanel, HorizontalBarList, VerticalBarChart } from "@/components/charts";
 import { PageHeader } from "@/components/page-header";
+import { ShopBackupButtons } from "@/components/shop-backup-buttons";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,13 +39,14 @@ export default async function AdminDashboardPage() {
       <PageHeader
         title="Dashboard"
         description={`Shop performance for ${charts.periodLabel.toLowerCase()}, with ${formatMonth(stats.month)} context below.`}
+        action={<ShopBackupButtons />}
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
         <p className="text-sm text-muted-foreground">
           Integrity stays primary — check movements and voids before leaning on trends.
         </p>
-        <Button variant="outline" size="sm" render={<Link href="/admin/integrity" />}>
+        <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/integrity" />}>
           Open Integrity
         </Button>
       </div>

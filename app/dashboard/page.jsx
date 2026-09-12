@@ -66,7 +66,7 @@ export default async function DashboardPage() {
           title="Your units today"
           description="Units sold by hour. Use Sales when you’re ready to log the next one."
           action={
-            <Button size="sm" render={<Link href="/dashboard/sales" />}>
+            <Button size="sm" nativeButton={false} render={<Link href="/dashboard/sales" />}>
               Go to Sales
             </Button>
           }
