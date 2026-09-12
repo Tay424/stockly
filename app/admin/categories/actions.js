@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createCategory, deleteCategory, listCategories, updateCategory } from "@/lib/catalog";
+import { createCategory, deleteCategory, listCategories, repriceNhavaSaltHistoricalSales, updateCategory } from "@/lib/catalog";
 import { parseMoneyToCents } from "@/lib/pricing";
 import { requireAdmin } from "@/lib/session";
 
@@ -98,4 +98,16 @@ export async function deleteCategoryAction(id) {
 
   revalidatePath("/admin/categories");
   return {};
+}
+
+export async function repriceNhavaSaltSalesAction(force = false) {
+  await requireAdmin();
+  const result = await repriceNhavaSaltHistoricalSales({ force: Boolean(force) });
+  if (!result.ok) return { error: result.reason };
+
+  revalidatePath("/admin/categories");
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/sales");
+  revalidatePath("/dashboard/sales");
+  return { result };
 }
