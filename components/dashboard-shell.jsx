@@ -15,7 +15,8 @@ export function DashboardShell({ children, role, user, badges }) {
       <AppSidebar role={role} badges={badges} />
       <SidebarInset>
         <header
-          className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:h-16 md:px-6"
+          data-app-chrome="header"
+          className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur print:hidden md:h-16 md:px-6"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           {/* Attendants use bottom nav on phones; keep sidebar trigger for admin. */}
@@ -33,8 +34,8 @@ export function DashboardShell({ children, role, user, badges }) {
         <div
           className={
             attendant
-              ? "flex-1 p-4 pb-24 md:p-8 md:pb-8"
-              : "flex-1 p-4 md:p-8"
+              ? "flex-1 p-4 pb-24 print:p-0 md:p-8 md:pb-8"
+              : "flex-1 p-4 print:p-0 md:p-8"
           }
         >
           {children}

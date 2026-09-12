@@ -135,3 +135,52 @@
     min-height: 100dvh;
   }
 }
+
+/* Invoices/receipts print as paper — no app chrome, no browser URL/title bars. */
+@page {
+  size: auto;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: white !important;
+  }
+
+  a[href]::after,
+  a[href]::before {
+    content: none !important;
+  }
+
+  [data-app-chrome],
+  [data-slot="sidebar"],
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  [data-slot="sidebar-inset"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  .receipt-shell {
+    background: white !important;
+    min-height: 0 !important;
+    padding: 12mm 14mm !important;
+  }
+
+  .receipt-paper {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

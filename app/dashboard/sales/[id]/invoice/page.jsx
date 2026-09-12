@@ -13,6 +13,12 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   timeStyle: "short",
 });
 
+export async function generateMetadata({ params }) {
+  const { id } = await params;
+  const shortId = String(id).slice(-8).toUpperCase();
+  return { title: `Receipt #${shortId}` };
+}
+
 export default async function SaleInvoicePage({ params }) {
   const { user } = await requireUser();
   const { id } = await params;
@@ -39,36 +45,18 @@ export default async function SaleInvoicePage({ params }) {
 
   return (
     <div className="receipt-shell min-h-[calc(100dvh-4rem)] bg-[radial-gradient(ellipse_at_top,_#f3e8dc_0%,_#fdfbf7_55%,_#f7f1ea_100%)] print:min-h-0 print:bg-white">
-      <style>{`
-        @page { margin: 12mm; }
-        @media print {
-          [data-slot="sidebar"],
-          [data-slot="sidebar-wrapper"] > div:first-child,
-          aside,
-          header[data-slot="sidebar-header"],
-          .print\\:hidden {
-            display: none !important;
-          }
-          html, body { background: white !important; }
-          main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
-          .receipt-shell { background: white !important; padding: 0 !important; min-height: 0 !important; }
-          .receipt-paper {
-            box-shadow: none !important;
-            border: none !important;
-            max-width: none !important;
-            border-radius: 0 !important;
-          }
-        }
-      `}</style>
-
-      <div className="mx-auto max-w-lg px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-lg px-4 py-6 print:max-w-none print:px-0 print:py-0 sm:px-6 sm:py-10">
         <InvoiceToolbar
           saleId={sale.id}
           shareText={shareText}
+          printTitle={`Receipt #${shortId}`}
           backHref={user.role === "admin" ? "/admin/sales" : "/dashboard/sales"}
         />
 
-        <article className="receipt-paper relative overflow-hidden rounded-3xl border border-[#e8ddd0] bg-[#fffdf9] shadow-[0_18px_50px_-24px_rgba(90,50,20,0.45)] print:rounded-none">
+        <article
+          data-invoice-paper
+          className="receipt-paper relative overflow-hidden rounded-3xl border border-[#e8ddd0] bg-[#fffdf9] shadow-[0_18px_50px_-24px_rgba(90,50,20,0.45)] print:rounded-none"
+        >
           <div className="bg-gradient-to-b from-primary/12 via-primary/5 to-transparent px-6 pb-2 pt-7 sm:px-8">
             <div className="flex flex-col items-center text-center">
               <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary text-lg font-bold tracking-tight text-primary-foreground shadow-sm">
