@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }) {
 
   return (
     <DashboardShell
-      role="user"
+      role={user.role === "admin" ? "admin" : "user"}
       user={user}
       badges={
         changesRequested > 0 ? { "/dashboard/expenses": changesRequested } : undefined

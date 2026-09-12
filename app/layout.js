@@ -1,5 +1,6 @@
 import { Mulish, Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/components/query-provider";
+import { PwaRegister } from "@/components/pwa-register";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -16,6 +17,22 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Stockly",
   description: "Stock management and sales",
+  applicationName: "Stockly",
+  appleWebApp: {
+    capable: true,
+    title: "Stockly",
+    statusBarStyle: "default",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport = {
+  themeColor: "#8e5228",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }) {
@@ -27,6 +44,7 @@ export default function RootLayout({ children }) {
       <body className="min-h-full flex flex-col">
         <QueryProvider>{children}</QueryProvider>
         <Toaster richColors />
+        <PwaRegister />
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -97,7 +98,8 @@ export function SalesTable({ initialSales }) {
     let rows = filterByQuery(
       sales,
       search,
-      (s) => `${s.productName ?? ""} ${s.soldByName ?? ""}`,
+      (s) =>
+        `${s.productName ?? ""} ${s.soldByName ?? ""} ${s.clientName ?? ""} ${s.clientPhone ?? ""}`,
     );
     if (tierFilter === "retail") rows = rows.filter((s) => !s.wholesale);
     if (tierFilter === "wholesale") rows = rows.filter((s) => s.wholesale);
@@ -221,7 +223,7 @@ export function SalesTable({ initialSales }) {
                   <TableCell className="text-muted-foreground">{sale.soldByName ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{sale.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(sale.unitPriceCents)}
+                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents)}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={sale.wholesale ? "info" : "muted"}>
@@ -240,17 +242,30 @@ export function SalesTable({ initialSales }) {
                     {sale.createdAt ? dateFormatter.format(new Date(sale.createdAt)) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    {sale.status !== SALE_STATUS.voided ? (
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
                       <Button
-                        variant={sale.status === SALE_STATUS.voidRequested ? "default" : "outline"}
+                        variant="outline"
                         size="sm"
-                        onClick={() => openVoid(sale)}
+                        render={
+                          <Link href={`/dashboard/sales/${sale.id}/invoice`} target="_blank" />
+                        }
                       >
-                        {sale.status === SALE_STATUS.voidRequested ? "Execute void" : "Void"}
+                        Invoice
                       </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Voided</span>
-                    )}
+                      {sale.status !== SALE_STATUS.voided ? (
+                        <Button
+                          variant={
+                            sale.status === SALE_STATUS.voidRequested ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => openVoid(sale)}
+                        >
+                          {sale.status === SALE_STATUS.voidRequested ? "Execute void" : "Void"}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Voided</span>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -290,8 +305,11 @@ export function SalesTable({ initialSales }) {
                 <p>
                   <span className="font-medium text-foreground">{voidTarget.productName}</span>
                   {" · "}
-                  {voidTarget.quantity} × {formatMoney(voidTarget.unitPriceCents)} ={" "}
+                  {voidTarget.quantity} unit{voidTarget.quantity === 1 ? "" : "s"} ·{" "}
                   {formatMoney(voidTarget.totalCents)}
+                  {Array.isArray(voidTarget.lines) && voidTarget.lines.length > 1
+                    ? ` · ${voidTarget.lines.length} lines`
+                    : ""}
                 </p>
                 <p className="mt-1">
                   Sold by {voidTarget.soldByName ?? "—"}

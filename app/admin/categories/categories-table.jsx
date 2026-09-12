@@ -28,10 +28,21 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useTablePagination } from "@/hooks/use-table-pagination";
+import { formatMoney } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery } from "@/lib/table-filter";
 
 import { deleteCategoryAction, fetchCategoriesAction, saveCategoryAction } from "./actions";
+
+function packLabel(category) {
+  const qty = category.wholesalePackQty ?? 0;
+  if (qty <= 0) return "Off";
+  return `${qty} @ ${formatMoney(category.wholesalePackPriceCents ?? 0)}`;
+}
+
+function toAmount(cents) {
+  return ((cents ?? 0) / 100).toFixed(2);
+}
 
 export function CategoriesTable({ initialCategories }) {
   const queryClient = useQueryClient();
@@ -124,13 +135,14 @@ export function CategoriesTable({ initialCategories }) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Wholesale pack</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={3}
+                  colSpan={4}
                   message={search ? "No categories match your search." : "No categories yet."}
                 />
               ) : (
@@ -139,6 +151,9 @@ export function CategoriesTable({ initialCategories }) {
                     <TableCell className="font-medium text-foreground">{category.name}</TableCell>
                     <TableCell className="max-w-md text-muted-foreground">
                       {category.description || "—"}
+                    </TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {packLabel(category)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -180,7 +195,10 @@ export function CategoriesTable({ initialCategories }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit category" : "New category"}</DialogTitle>
-            <DialogDescription>A name and a short description.</DialogDescription>
+            <DialogDescription>
+              Optional wholesale pack: complete blocks of N units charge the pack price on Sales
+              receipts (leftover units stay retail). Leave pack quantity at 0 to turn packs off.
+            </DialogDescription>
           </DialogHeader>
           {/* Remount when switching create/edit so uncontrolled defaultValues stay in sync. */}
           <form
@@ -205,6 +223,36 @@ export function CategoriesTable({ initialCategories }) {
                 rows={3}
                 defaultValue={editing?.description ?? ""}
               />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="category-pack-qty">Wholesale pack qty</Label>
+                <Input
+                  id="category-pack-qty"
+                  name="wholesalePackQty"
+                  type="number"
+                  min={0}
+                  step={1}
+                  defaultValue={editing?.wholesalePackQty ?? 0}
+                />
+                <p className="text-xs text-muted-foreground">0 = no packs for this category.</p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="category-pack-price">Pack price</Label>
+                <Input
+                  id="category-pack-price"
+                  name="wholesalePackPrice"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  defaultValue={
+                    editing?.id ? toAmount(editing.wholesalePackPriceCents) : "80.00"
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Charged per complete pack (e.g. 20 @ $80).
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>

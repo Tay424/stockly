@@ -10,6 +10,7 @@ import {
   ReceiptTextIcon,
   ScaleIcon,
   ShoppingCartIcon,
+  TruckIcon,
   UsersIcon,
   WalletIcon,
 } from "lucide-react";
@@ -38,6 +39,7 @@ const NAV_ICONS = {
   "/admin/categories": LayersIcon,
   "/admin/users": UsersIcon,
   "/admin/sales": ReceiptTextIcon,
+  "/admin/distributors": TruckIcon,
   "/admin/integrity": ClipboardCheckIcon,
   "/admin/expenses": WalletIcon,
   "/admin/accounts": ScaleIcon,
