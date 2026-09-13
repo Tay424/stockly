@@ -40,7 +40,9 @@ import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery } from "@/lib/table-filter";
 
 import {
+  assignUserLocationAction,
   createUserAction,
+  fetchSellableLocationsAction,
   fetchUsersAction,
   removeUserAction,
   resetUserPasswordAction,
@@ -115,7 +117,7 @@ function IssuedPasswordDialog({ issued, onClose }) {
   );
 }
 
-export function UsersTable({ initialUsers }) {
+export function UsersTable({ initialUsers, initialLocations = [] }) {
   const queryClient = useQueryClient();
   const { data: sessionData } = useSession();
   const currentUserId = sessionData?.user?.id;
@@ -123,6 +125,7 @@ export function UsersTable({ initialUsers }) {
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [createRole, setCreateRole] = useState("user");
+  const [createLocationId, setCreateLocationId] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [issued, setIssued] = useState(null);
 
@@ -131,6 +134,26 @@ export function UsersTable({ initialUsers }) {
     queryFn: fetchUsersAction,
     initialData: initialUsers,
   });
+
+  const { data: locations = [] } = useQuery({
+    queryKey: queryKeys.locations,
+    queryFn: fetchSellableLocationsAction,
+    initialData: initialLocations,
+  });
+
+  const locationItems = useMemo(
+    () =>
+      (locations ?? []).map((loc) => ({
+        value: loc.id,
+        label: loc.isHub ? `${loc.name} (hub)` : loc.name,
+      })),
+    [locations],
+  );
+
+  const hubLocationId = useMemo(
+    () => (locations ?? []).find((loc) => loc.isHub)?.id ?? "",
+    [locations],
+  );
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.users });
 
@@ -141,6 +164,7 @@ export function UsersTable({ initialUsers }) {
         toast.error(res.error);
         return;
       }
+      if (res.warning) toast.warning(res.warning);
       await refresh();
       setCreating(false);
       setIssued({
@@ -200,9 +224,27 @@ export function UsersTable({ initialUsers }) {
     onError: () => toast.error("Something went wrong. Try again."),
   });
 
+  const locationMutation = useMutation({
+    mutationFn: ({ id, locationId }) => assignUserLocationAction(id, locationId),
+    onSettled: () => setBusyId(null),
+    onSuccess: async (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      await refresh();
+      toast.success(`Assigned to ${res.location?.name ?? "branch"}.`);
+    },
+    onError: () => toast.error("Something went wrong. Try again."),
+  });
+
   const filtered = useMemo(
     () =>
-      filterByQuery(users, search, (u) => `${u.name} ${u.email} ${u.role ?? ""}`),
+      filterByQuery(
+        users,
+        search,
+        (u) => `${u.name} ${u.email} ${u.role ?? ""} ${u.locationName ?? ""}`,
+      ),
     [users, search],
   );
   const { page, paginated, setPage, totalItems, totalPages, pageSize } =
@@ -249,12 +291,19 @@ export function UsersTable({ initialUsers }) {
     roleMutation.mutate({ id: user.id, role });
   }
 
+  function onSetLocation(user, locationId) {
+    if (!locationId || locationId === (user.locationId ?? "")) return;
+    setBusyId(user.id);
+    locationMutation.mutate({ id: user.id, locationId });
+  }
+
   return (
     <>
       <div className="mb-4 flex justify-end">
         <Button
           onClick={() => {
             setCreateRole("user");
+            setCreateLocationId(hubLocationId);
             setCreating(true);
           }}
         >
@@ -279,6 +328,7 @@ export function UsersTable({ initialUsers }) {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -286,7 +336,7 @@ export function UsersTable({ initialUsers }) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={5}
+                  colSpan={6}
                   message={search ? "No users match your search." : "No users yet."}
                 />
               ) : (
@@ -316,6 +366,36 @@ export function UsersTable({ initialUsers }) {
                             <SelectContent>
                               <SelectItem value="user">Attendant</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {currentRole === "admin" ? (
+                          <span className="text-xs text-muted-foreground">All branches</span>
+                        ) : (
+                          <Select
+                            value={user.locationId || undefined}
+                            items={locationItems}
+                            onValueChange={(locationId) => onSetLocation(user, locationId)}
+                            disabled={
+                              busyId === user.id ||
+                              locationMutation.isPending ||
+                              locationItems.length === 0
+                            }
+                          >
+                            <SelectTrigger
+                              className="h-8 w-[9.5rem]"
+                              aria-label={`Branch for ${user.name}`}
+                            >
+                              <SelectValue placeholder="Assign branch" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {locationItems.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>
+                                  {item.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         )}
@@ -420,6 +500,35 @@ export function UsersTable({ initialUsers }) {
                 receive shop stock.
               </p>
             </div>
+            {createRole === "user" ? (
+              <div className="grid gap-2">
+                <Label htmlFor="user-location">Branch</Label>
+                <Select
+                  value={createLocationId || hubLocationId || undefined}
+                  onValueChange={setCreateLocationId}
+                  items={locationItems}
+                >
+                  <SelectTrigger id="user-location" className="w-full">
+                    <SelectValue placeholder="Harare (hub)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locationItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input
+                  type="hidden"
+                  name="locationId"
+                  value={createLocationId || hubLocationId}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Defaults to Harare hub. Gweru attendants sell and receive at the branch.
+                </p>
+              </div>
+            ) : null}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreating(false)}>
                 Cancel

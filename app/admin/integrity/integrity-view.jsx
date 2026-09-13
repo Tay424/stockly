@@ -84,7 +84,10 @@ export function IntegrityView({ initialSnapshot }) {
     onError: () => toast.error("Something went wrong. Try again."),
   });
 
-  const { summary, discrepancies, products, movements, pendingVoids } = snapshot;
+  const { summary, discrepancies, products, movements, pendingVoids, transfers } = snapshot;
+
+  const openTransfers = transfers?.openTransfers ?? [];
+  const transferMismatches = transfers?.mismatches ?? [];
 
   const filteredMovements = useMemo(() => {
     const q = movementSearch.trim().toLowerCase();
@@ -135,15 +138,59 @@ export function IntegrityView({ initialSnapshot }) {
           hint={`${summary.voidedUnits} units restored`}
         />
         <StatCard
-          value={summary.discrepancyCount}
-          label="Discrepancies"
-          hint={
-            summary.discrepancyCount === 0
-              ? "Sales and ledger match"
-              : "Review highlighted rows below"
-          }
+          value={(transfers?.openCount ?? 0) + (transfers?.mismatchCount ?? 0)}
+          label="Transfer watch"
+          hint={`${transfers?.openCount ?? 0} in transit · ${transfers?.mismatchCount ?? 0} mismatches`}
         />
       </div>
+
+      {(openTransfers.length > 0 || transferMismatches.length > 0) && (
+        <section className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-medium">Branch transfers</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Open in-transit stock and completed transfers whose ledger quantities do not match.
+            </p>
+          </div>
+          {openTransfers.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {openTransfers.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.productName}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {row.fromLocationName} → {row.toLocationName}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{row.quantity}</TableCell>
+                    <TableCell>
+                      <StatusPill tone="warning">In transit</StatusPill>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="px-4 py-3 text-sm text-muted-foreground">No open transfers.</p>
+          )}
+          {transferMismatches.length > 0 ? (
+            <ul className="divide-y divide-border border-t border-border">
+              {transferMismatches.map((m) => (
+                <li key={m.transferId} className="px-4 py-3 text-sm text-destructive">
+                  Transfer {m.transferId.slice(-6)}: out {m.outQty} ≠ in {m.inQty}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      )}
 
       {summary.discrepancyCount > 0 ? (
         <section className="overflow-hidden rounded-lg border border-destructive/30 bg-card">

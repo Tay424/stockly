@@ -34,6 +34,7 @@ import {
 
 import {
   fetchBackfillDistributorsAction,
+  fetchBackfillLocationsAction,
   fetchBackfillProductsAction,
   recordPastSaleAction,
 } from "./backfill-actions";
@@ -43,6 +44,7 @@ export function BackfillSaleForm({ initialProducts }) {
   const queryClient = useQueryClient();
 
   const [soldAtLocal, setSoldAtLocal] = useState(() => toDatetimeLocalValue(new Date()));
+  const [locationId, setLocationId] = useState("");
   const [productId, setProductId] = useState("");
   const [qtyDraft, setQtyDraft] = useState("1");
   const [cart, setCart] = useState([]);
@@ -55,6 +57,16 @@ export function BackfillSaleForm({ initialProducts }) {
     queryFn: fetchBackfillProductsAction,
     initialData: initialProducts,
   });
+
+  const { data: locations = [] } = useQuery({
+    queryKey: queryKeys.locations,
+    queryFn: fetchBackfillLocationsAction,
+  });
+
+  const hubLocationId = useMemo(
+    () => locations.find((l) => l.isHub)?.id ?? "",
+    [locations],
+  );
 
   const { data: distributors = [] } = useQuery({
     queryKey: queryKeys.distributors,
@@ -169,7 +181,8 @@ export function BackfillSaleForm({ initialProducts }) {
   }
 
   const mutation = useMutation({
-    mutationFn: ({ client, soldAt }) => recordPastSaleAction(cart, client, soldAt),
+    mutationFn: ({ client, soldAt, locationId: locId }) =>
+      recordPastSaleAction(cart, client, soldAt, locId || null),
     onSuccess: async (res) => {
       if (res.error) {
         toast.error(res.error);
@@ -230,7 +243,11 @@ export function BackfillSaleForm({ initialProducts }) {
   }
 
   function submitClient(client) {
-    mutation.mutate({ client, soldAt: soldAtLocal });
+    mutation.mutate({
+      client,
+      soldAt: soldAtLocal,
+      locationId: locationId || hubLocationId || null,
+    });
   }
 
   function onClientContinue() {
@@ -291,6 +308,26 @@ export function BackfillSaleForm({ initialProducts }) {
         <p className="text-xs text-muted-foreground">
           Date and time the sale actually happened (local time).
         </p>
+      </div>
+
+      <div className="grid gap-2 sm:max-w-sm">
+        <Label htmlFor="backfill-branch">Branch</Label>
+        <Select
+          value={locationId || hubLocationId || undefined}
+          onValueChange={setLocationId}
+        >
+          <SelectTrigger id="backfill-branch" className="w-full">
+            <SelectValue placeholder="Harare (hub)" />
+          </SelectTrigger>
+          <SelectContent>
+            {locations.map((loc) => (
+              <SelectItem key={loc.id} value={loc.id}>
+                {loc.isHub ? `${loc.name} (hub)` : loc.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Defaults to Harare hub.</p>
       </div>
 
       <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_6rem_auto] sm:items-end">

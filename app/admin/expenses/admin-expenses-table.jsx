@@ -286,6 +286,7 @@ export function AdminExpensesTable({ initialExpenses }) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Recorded by</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
@@ -296,7 +297,7 @@ export function AdminExpensesTable({ initialExpenses }) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={7}
+                  colSpan={8}
                   message={
                     search || statusFilter !== "all"
                       ? "No expenses match your filters."
@@ -309,6 +310,9 @@ export function AdminExpensesTable({ initialExpenses }) {
                     <TableCell className="font-medium text-foreground">{expense.name}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {categoryLabel(expense.category)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground whitespace-nowrap">
+                      {expense.locationName ?? "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground whitespace-nowrap">
                       {expense.recordedByName ?? "—"}

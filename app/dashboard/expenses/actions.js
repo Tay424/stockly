@@ -13,6 +13,7 @@ import {
 } from "@/lib/finance";
 import { parseMoneyToCents } from "@/lib/pricing";
 import { storeReceiptFile } from "@/lib/receipts";
+import { requireUserLocation } from "@/lib/locations";
 import { requireUser } from "@/lib/session";
 
 function revalidateMine() {
@@ -85,11 +86,16 @@ export async function saveMyExpenseAction(id, formData) {
     const stored = await storeReceiptFile(file);
     if (!stored.ok) return { error: stored.reason };
 
+    const loc = await requireUserLocation(user);
+    if (!loc.ok) return { error: loc.reason };
+
     await createExpense({
       ...fields,
       status: EXPENSE_STATUS.pending,
       recordedBy: user.id,
       recordedByName: user.name,
+      locationId: loc.location.id,
+      locationName: loc.location.name,
       receiptUrl: stored.receipt.url,
       receiptKey: stored.receipt.key,
       receiptMime: stored.receipt.mime,

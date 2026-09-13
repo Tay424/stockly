@@ -5,6 +5,12 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/lib/auth";
+import {
+  assignUserLocation,
+  ensureLocationsMigrated,
+  getHubLocation,
+  listSellableLocations,
+} from "@/lib/locations";
 import { generateTemporaryPassword } from "@/lib/password";
 import { requireAdmin } from "@/lib/session";
 
@@ -13,9 +19,10 @@ function readCreateForm(formData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const roleRaw = String(formData.get("role") ?? "user").trim();
   const role = roleRaw === "admin" ? "admin" : "user";
+  const locationId = String(formData.get("locationId") ?? "").trim() || null;
   if (!name) return { error: "Name is required." };
   if (!email || !email.includes("@")) return { error: "A valid email is required." };
-  return { fields: { name, email, role } };
+  return { fields: { name, email, role, locationId } };
 }
 
 /** Map Better Auth / API errors into a short toast message. */
@@ -44,9 +51,29 @@ export async function fetchUsersAction() {
   return result.users ?? [];
 }
 
+export async function fetchSellableLocationsAction() {
+  await requireAdmin();
+  await ensureLocationsMigrated();
+  return listSellableLocations();
+}
+
+/** Assign an attendant (or any user) to Harare or Gweru. */
+export async function assignUserLocationAction(userId, locationId) {
+  await requireAdmin();
+  const id = String(userId ?? "").trim();
+  if (!id) return { error: "User is required." };
+
+  const result = await assignUserLocation(id, locationId);
+  if (!result.ok) return { error: result.reason };
+
+  revalidatePath("/admin/users");
+  return { location: result.location };
+}
+
 /**
  * Create an attendant or admin account with a generated temporary password.
  * Returns the plaintext password once so the admin can hand it over.
+ * Attendants default to the Harare hub when no locationId is provided.
  */
 export async function createUserAction(formData) {
   await requireAdmin();
@@ -67,6 +94,25 @@ export async function createUserAction(formData) {
       },
       headers: await headers(),
     });
+
+    if (fields.role === "user" && result.user?.id) {
+      let locationId = fields.locationId;
+      if (!locationId) {
+        const hub = await getHubLocation();
+        locationId = hub?.id ?? null;
+      }
+      if (locationId) {
+        const assigned = await assignUserLocation(result.user.id, locationId);
+        if (!assigned.ok) {
+          revalidatePath("/admin/users");
+          return {
+            user: result.user,
+            temporaryPassword,
+            warning: assigned.reason || "User created but branch assignment failed.",
+          };
+        }
+      }
+    }
 
     revalidatePath("/admin/users");
     return {

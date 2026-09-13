@@ -4,9 +4,11 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { countPendingExpenses } from "@/lib/finance";
 import { countLowStockProducts } from "@/lib/inventory";
 import { requireAdmin } from "@/lib/session";
+import { ensureLocationsMigrated } from "@/lib/locations";
 
 export default async function AdminLayout({ children }) {
   const { user } = await requireAdmin();
+  await ensureLocationsMigrated();
   const [pendingExpenses, lowStockCount] = await Promise.all([
     countPendingExpenses(),
     countLowStockProducts(),

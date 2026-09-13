@@ -14,6 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminChartData, adminStats } from "@/lib/finance";
+import {
+  branchPerformanceMonth,
+  branchPerformanceToday,
+} from "@/lib/branch-performance";
 import { formatMoney } from "@/lib/pricing";
 
 const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" });
@@ -24,7 +28,12 @@ function formatMonth(key) {
 }
 
 export default async function AdminDashboardPage() {
-  const [stats, charts] = await Promise.all([adminStats(), adminChartData()]);
+  const [stats, charts, branchToday, branchMonth] = await Promise.all([
+    adminStats(),
+    adminChartData(),
+    branchPerformanceToday(),
+    branchPerformanceMonth(),
+  ]);
   const { thisMonth } = stats;
   const { totals, hourly, attendants } = charts;
 
@@ -84,6 +93,76 @@ export default async function AdminDashboardPage() {
           label="Products"
           hint={stockHint}
         />
+      </div>
+
+      <div className="mb-8 overflow-hidden rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-medium">Branch performance</h2>
+          <p className="text-xs text-muted-foreground">
+            Harare vs Gweru — sales revenue, approved expenses, and net (today and this month).
+          </p>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Branch</TableHead>
+              <TableHead className="text-right">Today sales</TableHead>
+              <TableHead className="text-right">Today expenses</TableHead>
+              <TableHead className="text-right">Today net</TableHead>
+              <TableHead className="text-right">Month sales</TableHead>
+              <TableHead className="text-right">Month expenses</TableHead>
+              <TableHead className="text-right">Month net</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(branchToday.byLocation ?? []).map((todayRow) => {
+              const monthRow =
+                (branchMonth.byLocation ?? []).find(
+                  (row) => row.locationId === todayRow.locationId,
+                ) ?? {};
+              return (
+                <TableRow key={todayRow.locationId}>
+                  <TableCell className="font-medium text-foreground">
+                    {todayRow.locationName}
+                    {todayRow.isHub ? (
+                      <span className="ml-2 text-xs text-muted-foreground">hub</span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatMoney(todayRow.revenueCents)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatMoney(todayRow.expenseCents)}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      todayRow.netCents < 0
+                        ? "text-right font-medium tabular-nums text-destructive"
+                        : "text-right font-medium tabular-nums"
+                    }
+                  >
+                    {formatMoney(todayRow.netCents)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatMoney(monthRow.revenueCents ?? 0)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatMoney(monthRow.expenseCents ?? 0)}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      (monthRow.netCents ?? 0) < 0
+                        ? "text-right font-medium tabular-nums text-destructive"
+                        : "text-right font-medium tabular-nums"
+                    }
+                  >
+                    {formatMoney(monthRow.netCents ?? 0)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
 
       <div className="mb-8 grid gap-4 lg:grid-cols-2">
