@@ -10,11 +10,14 @@ import {
   requestSaleVoid,
 } from "@/lib/catalog";
 import { listDistributors, normalizePhone } from "@/lib/distributors";
+import { requireUserLocation } from "@/lib/locations";
 import { requireUser } from "@/lib/session";
 
 export async function fetchSellableProductsAction() {
-  await requireUser();
-  return listSellableProducts();
+  const { user } = await requireUser();
+  const loc = await requireUserLocation(user);
+  if (!loc.ok) return [];
+  return listSellableProducts({ locationId: loc.location.id });
 }
 
 /** Attendant history: last 24 hours only. */
@@ -67,11 +70,16 @@ export async function recordSaleReceiptAction(cartLines, client = null) {
     }
   }
 
+  const loc = await requireUserLocation(user);
+  if (!loc.ok) return { error: loc.reason };
+
   const { ok, reason, totalCents, quantity, wholesale, saleId } = await recordSaleReceipt({
     cartLines: normalized,
     saleMeta: {
       soldBy: user.id,
       soldByName: user.name,
+      locationId: loc.location.id,
+      locationName: loc.location.name,
     },
     client: clientPayload,
   });

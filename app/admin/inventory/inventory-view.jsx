@@ -44,8 +44,10 @@ import {
   fetchInventoryHealthAction,
   fetchMonthInventoryAction,
   fetchRecentReceivesAction,
+  fetchSellableLocationsAction,
   receiveStockAction,
 } from "./actions";
+import { TransfersPanel } from "./transfers-panel";
 
 const STATUS_TONES = {
   out: "danger",
@@ -83,11 +85,17 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
   const [statusFilter, setStatusFilter] = useState("all");
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveProductId, setReceiveProductId] = useState("");
+  const [receiveLocationId, setReceiveLocationId] = useState("");
 
   const { data: health } = useQuery({
     queryKey: queryKeys.inventoryHealth,
     queryFn: fetchInventoryHealthAction,
     initialData: initialHealth,
+  });
+
+  const { data: locations = [] } = useQuery({
+    queryKey: queryKeys.locations,
+    queryFn: fetchSellableLocationsAction,
   });
 
   const { data: month } = useQuery({
@@ -114,6 +122,7 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
         queryClient.invalidateQueries({ queryKey: queryKeys.inventoryMonth }),
         queryClient.invalidateQueries({ queryKey: queryKeys.inventoryReceives }),
         queryClient.invalidateQueries({ queryKey: queryKeys.products }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.stockTransfers }),
       ]);
       toast.success("Stock received.");
       setReceiveOpen(false);
@@ -121,6 +130,8 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
     },
     onError: () => toast.error("Something went wrong. Try again."),
   });
+
+  const hubLocationId = locations.find((l) => l.isHub)?.id ?? "";
 
   const filtered = useMemo(() => {
     let rows = filterByQuery(
@@ -152,6 +163,7 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
     }
     const formData = new FormData(event.currentTarget);
     formData.set("productId", receiveProductId);
+    formData.set("locationId", receiveLocationId || hubLocationId);
     receiveMutation.mutate(formData);
   }
 
@@ -352,6 +364,25 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
               </Select>
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="receive-location">Branch</Label>
+              <Select
+                value={receiveLocationId || hubLocationId || undefined}
+                onValueChange={setReceiveLocationId}
+              >
+                <SelectTrigger id="receive-location" className="w-full">
+                  <SelectValue placeholder="Harare (hub)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.isHub ? `${loc.name} (hub)` : loc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="receive-qty">Quantity</Label>
@@ -403,6 +434,8 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
           </form>
         </DialogContent>
       </Dialog>
+
+      <TransfersPanel products={health?.items ?? []} />
     </>
   );
 }

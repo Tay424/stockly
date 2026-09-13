@@ -195,6 +195,7 @@ export function SalesTable({ initialSales }) {
             <TableRow>
               <TableHead>Product</TableHead>
               <TableHead>Sold by</TableHead>
+              <TableHead>Branch</TableHead>
               <TableHead className="text-right">Qty</TableHead>
               <TableHead className="text-right">Unit price</TableHead>
               <TableHead>Price used</TableHead>
@@ -207,7 +208,7 @@ export function SalesTable({ initialSales }) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableEmptyRow
-                colSpan={9}
+                colSpan={10}
                 message={
                   search || tierFilter !== "all" || statusFilter !== "all"
                     ? "No sales match your filters."
@@ -221,6 +222,9 @@ export function SalesTable({ initialSales }) {
                     {sale.productName ?? "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{sale.soldByName ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {sale.locationName ?? "—"}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{sale.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents)}

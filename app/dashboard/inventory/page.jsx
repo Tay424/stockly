@@ -1,12 +1,15 @@
 import { PageHeader } from "@/components/page-header";
 import { listProducts } from "@/lib/catalog";
 import { listStockReceives } from "@/lib/inventory";
+import { requireUserLocation } from "@/lib/locations";
 import { requireUser } from "@/lib/session";
 
 import { AttendantInventoryView } from "./attendant-inventory-view";
 
 export default async function AttendantInventoryPage() {
   const session = await requireUser();
+  const loc = await requireUserLocation(session.user);
+
   const [products, receives] = await Promise.all([
     listProducts(),
     listStockReceives({ createdBy: session.user.id, limit: 20 }),
@@ -23,9 +26,13 @@ export default async function AttendantInventoryPage() {
     <>
       <PageHeader
         title="Inventory"
-        description="Record stock you receive into the shop. It updates shared on-hand stock — admins see it on Inventory."
+        description="Receive stock into your branch and manage Harare → Gweru transfers."
       />
-      <AttendantInventoryView initialProducts={productOptions} initialReceives={receives} />
+      <AttendantInventoryView
+        initialProducts={productOptions}
+        initialReceives={receives}
+        initialBranch={loc.ok ? loc.location : null}
+      />
     </>
   );
 }

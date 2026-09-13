@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { listSellableProducts, recordSaleReceipt } from "@/lib/catalog";
 import { listDistributors, normalizePhone } from "@/lib/distributors";
+import { getHubLocation, getLocationById, listSellableLocations } from "@/lib/locations";
 import {
   parseDatetimeLocal,
   validateBackfillSoldAt,
@@ -20,11 +21,17 @@ export async function fetchBackfillDistributorsAction() {
   return listDistributors({ limit: 300 });
 }
 
+export async function fetchBackfillLocationsAction() {
+  await requireAdmin();
+  return listSellableLocations();
+}
+
 /**
  * Admin-only: record a past sale with an explicit sold-at datetime.
  * Deducts current on-hand stock. Window: 22 Jul 2026 local → now.
+ * `locationId` optional — defaults to Harare hub.
  */
-export async function recordPastSaleAction(cartLines, client, soldAtLocal) {
+export async function recordPastSaleAction(cartLines, client, soldAtLocal, locationId = null) {
   const { user } = await requireAdmin();
 
   if (!Array.isArray(cartLines) || cartLines.length === 0) {
@@ -59,12 +66,27 @@ export async function recordPastSaleAction(cartLines, client, soldAtLocal) {
     }
   }
 
+  let branchId = locationId ? String(locationId) : null;
+  let branchName = null;
+  if (branchId) {
+    const loc = await getLocationById(branchId);
+    if (!loc || loc.isSystem) return { error: "Choose a valid branch." };
+    branchName = loc.name;
+  } else {
+    const hub = await getHubLocation();
+    if (!hub) return { error: "Harare hub is not set up yet." };
+    branchId = hub.id;
+    branchName = hub.name;
+  }
+
   const { ok, reason, totalCents, quantity, wholesale, saleId } =
     await recordSaleReceipt({
       cartLines: normalized,
       saleMeta: {
         soldBy: user.id,
         soldByName: user.name,
+        locationId: branchId,
+        locationName: branchName,
       },
       client: clientPayload,
       soldAt: validated.soldAt,

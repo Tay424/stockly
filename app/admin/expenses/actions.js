@@ -18,6 +18,7 @@ import {
 import { notifyExpenseStatus } from "@/lib/notify";
 import { parseMoneyToCents } from "@/lib/pricing";
 import { storeReceiptFile } from "@/lib/receipts";
+import { getHubLocation, listSellableLocations, requireUserLocation } from "@/lib/locations";
 import { requireAdmin } from "@/lib/session";
 
 function revalidateExpensePaths() {
@@ -43,16 +44,33 @@ export async function fetchExpensesAction() {
   return listExpenses();
 }
 
+export async function fetchExpenseLocationsAction() {
+  await requireAdmin();
+  return listSellableLocations();
+}
+
 export async function fetchPendingExpensesAction() {
   await requireAdmin();
   return listPendingExpenses();
 }
 
-/** Admin direct expense — auto-approved; receipt optional. */
+/** Admin direct expense — auto-approved; receipt optional. Defaults to Harare hub. */
 export async function saveAdminExpenseAction(id, formData) {
   const { user } = await requireAdmin();
   const { error, fields } = readCoreForm(formData);
   if (error) return { error };
+
+  const locationIdRaw = String(formData.get("locationId") ?? "").trim();
+  let locationId = locationIdRaw || null;
+  let locationName = null;
+  if (!locationId) {
+    const hub = await getHubLocation();
+    locationId = hub?.id ?? null;
+    locationName = hub?.name ?? null;
+  } else {
+    const branches = await listSellableLocations();
+    locationName = branches.find((b) => b.id === locationId)?.name ?? null;
+  }
 
   const file = formData.get("receipt");
   let receipt = null;
@@ -87,6 +105,8 @@ export async function saveAdminExpenseAction(id, formData) {
       recordedByName: user.name,
       reviewedBy: user.id,
       reviewedByName: user.name,
+      locationId,
+      locationName,
       ...(receipt
         ? {
             receiptUrl: receipt.url,
