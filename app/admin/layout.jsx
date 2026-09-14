@@ -8,8 +8,8 @@ import { ensureLocationsMigrated } from "@/lib/locations";
 
 export default async function AdminLayout({ children }) {
   const { user } = await requireAdmin();
-  await ensureLocationsMigrated();
-  const [pendingExpenses, lowStockCount] = await Promise.all([
+  const [, pendingExpenses, lowStockCount] = await Promise.all([
+    ensureLocationsMigrated(),
     countPendingExpenses(),
     countLowStockProducts(),
   ]);
