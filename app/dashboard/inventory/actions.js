@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import { listProducts } from "@/lib/catalog";
 import { listStockReceives, parseReceivedAt, receiveStock } from "@/lib/inventory";
 import {
@@ -17,6 +19,7 @@ import {
 import { requireUser } from "@/lib/session";
 
 function revalidateInventoryPaths() {
+  invalidatePerfCaches();
   revalidatePath("/dashboard/inventory");
   revalidatePath("/admin/inventory");
   revalidatePath("/admin/products");
