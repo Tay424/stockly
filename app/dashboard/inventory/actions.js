@@ -7,7 +7,7 @@ import { listStockReceives, parseReceivedAt, receiveStock } from "@/lib/inventor
 import {
   cancelStockTransfer,
   confirmStockTransfer,
-  getHubLocation,
+  listLocationStockForLocation,
   listOpenTransfersTo,
   listSellableLocations,
   listStockTransfers,
@@ -15,7 +15,6 @@ import {
   sendStockTransfer,
 } from "@/lib/locations";
 import { requireUser } from "@/lib/session";
-import { TRANSFER_STATUS } from "@/lib/stock-ledger";
 
 function revalidateInventoryPaths() {
   revalidatePath("/dashboard/inventory");
@@ -25,15 +24,35 @@ function revalidateInventoryPaths() {
   revalidatePath("/admin/dashboard");
 }
 
-export async function fetchReceiveProductsAction() {
-  await requireUser();
-  const products = await listProducts();
+async function productsWithBranchStock(locationId) {
+  const [products, branchStock] = await Promise.all([
+    listProducts(),
+    listLocationStockForLocation(locationId),
+  ]);
+  const qtyByProduct = new Map(
+    branchStock.map((row) => [row.productId, row.quantity]),
+  );
   return products.map((p) => ({
     id: p.id,
     name: p.name,
-    stock: p.stock ?? 0,
+    stock: qtyByProduct.get(p.id) ?? 0,
     categoryName: p.categoryName ?? null,
   }));
+}
+
+export async function fetchReceiveProductsAction() {
+  const session = await requireUser();
+  const loc = await requireUserLocation(session.user);
+  if (!loc.ok) return [];
+  return productsWithBranchStock(loc.location.id);
+}
+
+/** Branch on-hand for the signed-in attendant only (no client location id). */
+export async function fetchMyBranchStockAction() {
+  const session = await requireUser();
+  const loc = await requireUserLocation(session.user);
+  if (!loc.ok) return [];
+  return listLocationStockForLocation(loc.location.id);
 }
 
 export async function fetchMyReceivesAction() {
@@ -160,5 +179,3 @@ export async function receiveStockAsAttendantAction(formData) {
   revalidateInventoryPaths();
   return { stock: result.stock };
 }
-
-export { TRANSFER_STATUS, getHubLocation };

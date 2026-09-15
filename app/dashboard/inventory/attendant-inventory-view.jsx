@@ -33,6 +33,7 @@ import {
   cancelTransferAction,
   confirmTransferAction,
   fetchMyBranchAction,
+  fetchMyBranchStockAction,
   fetchMyReceivesAction,
   fetchReceiveProductsAction,
   fetchTransfersAction,
@@ -51,11 +52,17 @@ function nowLocalDateTimeInput() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function AttendantInventoryView({ initialProducts, initialReceives, initialBranch = null }) {
+export function AttendantInventoryView({
+  initialProducts,
+  initialReceives,
+  initialBranch = null,
+  initialBranchStock = [],
+}) {
   const queryClient = useQueryClient();
   const [productId, setProductId] = useState("");
   const [receivedAt, setReceivedAt] = useState(nowLocalDateTimeInput);
   const [transferProductId, setTransferProductId] = useState("");
+  const [stockFilter, setStockFilter] = useState("");
 
   const { data: branchResult } = useQuery({
     queryKey: [...queryKeys.locations, "mine"],
@@ -72,6 +79,34 @@ export function AttendantInventoryView({ initialProducts, initialReceives, initi
     initialData: initialProducts,
     enabled: Boolean(location),
   });
+
+  const branchStockKey = [...queryKeys.locationStock, location?.id ?? "none"];
+
+  const { data: branchStock } = useQuery({
+    queryKey: branchStockKey,
+    queryFn: fetchMyBranchStockAction,
+    initialData: initialBranchStock,
+    enabled: Boolean(location),
+  });
+
+  const filteredBranchStock = useMemo(() => {
+    const rows = branchStock ?? [];
+    const q = stockFilter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) =>
+      String(row.productName ?? "")
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [branchStock, stockFilter]);
+
+  async function invalidateBranchStockQueries() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.locationStock }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.products }),
+    ]);
+  }
+
 
   const { data: receives } = useQuery({
     queryKey: queryKeys.myStockReceives,
@@ -98,7 +133,7 @@ export function AttendantInventoryView({ initialProducts, initialReceives, initi
         return;
       }
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.products }),
+        invalidateBranchStockQueries(),
         queryClient.invalidateQueries({ queryKey: queryKeys.myStockReceives }),
         queryClient.invalidateQueries({ queryKey: queryKeys.inventoryHealth }),
       ]);
@@ -116,7 +151,10 @@ export function AttendantInventoryView({ initialProducts, initialReceives, initi
         toast.error(res.error);
         return;
       }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.myStockTransfers });
+      await Promise.all([
+        invalidateBranchStockQueries(),
+        queryClient.invalidateQueries({ queryKey: queryKeys.myStockTransfers }),
+      ]);
       toast.success("Transfer sent to Gweru — awaiting confirmation.");
       setTransferProductId("");
     },
@@ -130,7 +168,10 @@ export function AttendantInventoryView({ initialProducts, initialReceives, initi
         toast.error(res.error);
         return;
       }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.myStockTransfers });
+      await Promise.all([
+        invalidateBranchStockQueries(),
+        queryClient.invalidateQueries({ queryKey: queryKeys.myStockTransfers }),
+      ]);
       toast.success("Incoming transfer confirmed.");
     },
     onError: () => toast.error("Something went wrong. Try again."),
@@ -143,7 +184,10 @@ export function AttendantInventoryView({ initialProducts, initialReceives, initi
         toast.error(res.error);
         return;
       }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.myStockTransfers });
+      await Promise.all([
+        invalidateBranchStockQueries(),
+        queryClient.invalidateQueries({ queryKey: queryKeys.myStockTransfers }),
+      ]);
       toast.success("Transfer cancelled.");
     },
     onError: () => toast.error("Something went wrong. Try again."),
@@ -197,6 +241,57 @@ export function AttendantInventoryView({ initialProducts, initialReceives, initi
             ? " You can send stock to Gweru."
             : " Confirm incoming transfers from Harare here."}
         </p>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h2 className="text-sm font-medium text-foreground">Stock on hand</h2>
+            <p className="text-xs text-muted-foreground">
+              {location.name} only — ask an admin to amend counts.
+            </p>
+          </div>
+          <Input
+            value={stockFilter}
+            onChange={(event) => setStockFilter(event.target.value)}
+            placeholder="Search products…"
+            className="h-8 w-full max-w-xs"
+            aria-label="Search branch stock"
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredBranchStock.length === 0 ? (
+                <TableEmptyRow
+                  colSpan={2}
+                  message={
+                    stockFilter.trim()
+                      ? "No products match that search."
+                      : "No stock recorded at this branch yet."
+                  }
+                />
+              ) : (
+                filteredBranchStock.map((row) => (
+                  <TableRow key={row.productId}>
+                    <TableCell className="font-medium text-foreground">
+                      {row.productName}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {row.quantity}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
