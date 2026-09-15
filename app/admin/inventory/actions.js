@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import {
   getMonthInventorySummary,
   inventoryMonthKey,
@@ -23,6 +25,7 @@ import { requireAdmin } from "@/lib/session";
 import { TRANSFER_STATUS } from "@/lib/stock-ledger";
 
 function revalidateInventoryPaths() {
+  invalidatePerfCaches();
   revalidatePath("/admin/inventory");
   revalidatePath("/admin/products");
   revalidatePath("/admin/integrity");

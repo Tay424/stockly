@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import {
   getSaleById,
   listSalesBySeller,
@@ -86,6 +88,7 @@ export async function recordSaleReceiptAction(cartLines, client = null) {
 
   if (!ok) return { error: reason };
 
+  invalidatePerfCaches();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/sales");
   revalidatePath("/admin/sales");
@@ -105,6 +108,7 @@ export async function requestVoidAction(saleId, reason) {
   });
   if (!ok) return { error };
 
+  invalidatePerfCaches();
   revalidatePath("/dashboard/sales");
   revalidatePath("/admin/sales");
   revalidatePath("/admin/integrity");

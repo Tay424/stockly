@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import { EXPENSE_STATUS } from "@/lib/expense-constants";
 import {
   assertExpenseFields,
@@ -17,6 +19,7 @@ import { requireUserLocation } from "@/lib/locations";
 import { requireUser } from "@/lib/session";
 
 function revalidateMine() {
+  invalidatePerfCaches();
   revalidatePath("/dashboard/expenses");
   revalidatePath("/dashboard");
   revalidatePath("/admin/expenses");

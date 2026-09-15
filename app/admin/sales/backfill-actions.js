@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import { listSellableProducts, recordSaleReceipt } from "@/lib/catalog";
 import { listDistributors, normalizePhone } from "@/lib/distributors";
 import { getHubLocation, getLocationById, listSellableLocations } from "@/lib/locations";
@@ -94,6 +96,7 @@ export async function recordPastSaleAction(cartLines, client, soldAtLocal, locat
 
   if (!ok) return { error: reason };
 
+  invalidatePerfCaches();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/sales");
   revalidatePath("/admin/sales");

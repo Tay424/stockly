@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import {
   ensureLocationsMigrated,
   listSellableLocations,
@@ -20,6 +22,7 @@ export async function renameLocationAction(locationId, name) {
   const result = await renameLocation(locationId, name);
   if (!result.ok) return { error: result.reason };
 
+  invalidatePerfCaches();
   revalidatePath("/admin/locations");
   revalidatePath("/admin/users");
   revalidatePath("/admin/inventory");

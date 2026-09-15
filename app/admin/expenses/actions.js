@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import { auth } from "@/lib/auth";
 import { EXPENSE_STATUS } from "@/lib/expense-constants";
 import {
@@ -22,6 +24,7 @@ import { getHubLocation, listSellableLocations, requireUserLocation } from "@/li
 import { requireAdmin } from "@/lib/session";
 
 function revalidateExpensePaths() {
+  invalidatePerfCaches();
   revalidatePath("/admin/expenses");
   revalidatePath("/admin/accounts");
   revalidatePath("/admin/dashboard");

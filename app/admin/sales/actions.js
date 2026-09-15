@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import {
   executeSaleVoid,
   listPendingVoidRequests,
@@ -10,6 +12,7 @@ import {
 import { requireAdmin } from "@/lib/session";
 
 function revalidateSalePaths() {
+  invalidatePerfCaches();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/sales");
   revalidatePath("/admin/sales");

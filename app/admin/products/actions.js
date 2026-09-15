@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { invalidatePerfCaches } from "@/lib/cache-tags";
+
 import { createProduct, deleteProduct, listProducts, updateProduct } from "@/lib/catalog";
 import { parseMoneyToCents } from "@/lib/pricing";
 import { storeProductImage } from "@/lib/receipts";
@@ -72,6 +74,7 @@ function readForm(formData) {
 }
 
 function revalidateStockPaths() {
+  invalidatePerfCaches();
   revalidatePath("/admin/products");
   revalidatePath("/admin/inventory");
   revalidatePath("/admin/integrity");
@@ -128,6 +131,7 @@ export async function deleteProductAction(id) {
   const ok = await deleteProduct(id);
   if (!ok) return { error: "Product not found." };
 
+  invalidatePerfCaches();
   revalidatePath("/admin/products");
   return {};
 }
