@@ -6,32 +6,30 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  getInstallPrompt,
+  isIos,
+  isStandalone,
+  promptInstall,
+  subscribeInstallPrompt,
+} from "@/lib/pwa-install";
 
 const STORAGE_KEY = "stockly-install-tip-dismissed";
-
-function isIos() {
-  if (typeof navigator === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function isStandalone() {
-  if (typeof window === "undefined") return false;
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari
-    window.navigator.standalone === true
-  );
-}
+/** How long to wait for beforeinstallprompt before showing menu instructions. */
+const PROMPT_WAIT_MS = 4000;
 
 /**
  * Dismissible “Add to Home Screen” tip for mobile signed-in users.
- * Android/Chrome: uses beforeinstallprompt. iOS: Share → Add to Home Screen.
+ * Android/Chrome: Install runs deferred.prompt() from the early-captured event.
+ * iOS: Share → Add to Home Screen (no programmatic install API).
  */
 export function PwaInstallTip({ elevated = false }) {
   const isMobile = useIsMobile();
   const [visible, setVisible] = useState(false);
   const [deferred, setDeferred] = useState(null);
   const [iosHint, setIosHint] = useState(false);
+  const [manualHint, setManualHint] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     if (!isMobile || isStandalone()) return;
@@ -47,17 +45,30 @@ export function PwaInstallTip({ elevated = false }) {
       return;
     }
 
-    function onBeforeInstall(event) {
-      event.preventDefault();
-      setDeferred(event);
-      setVisible(true);
-    }
+    // Prefer any prompt already captured by PwaRegister; otherwise show
+    // “Preparing install…” until the event arrives or we time out to menu steps.
+    setDeferred(getInstallPrompt());
+    setVisible(true);
 
-    window.addEventListener("beforeinstallprompt", onBeforeInstall);
-    // Show a soft tip even before the event (Chrome may fire later).
-    const timer = window.setTimeout(() => setVisible(true), 2500);
+    const unsubscribe = subscribeInstallPrompt((event) => {
+      setDeferred(event);
+      if (event) {
+        setManualHint(false);
+        setVisible(true);
+      }
+    });
+
+    // If Chrome hasn't offered install yet, fall back to browser-menu steps —
+    // never a fake Install that only toasts.
+    const timer = window.setTimeout(() => {
+      if (!getInstallPrompt()) {
+        setManualHint(true);
+        setVisible(true);
+      }
+    }, PROMPT_WAIT_MS);
+
     return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+      unsubscribe();
       window.clearTimeout(timer);
     };
   }, [isMobile]);
@@ -72,19 +83,42 @@ export function PwaInstallTip({ elevated = false }) {
   }
 
   async function install() {
-    if (!deferred) {
-      toast.message("Use your browser menu", {
-        description: "Choose “Install app” or “Add to Home Screen”.",
-      });
-      return;
+    if (!deferred) return;
+    setInstalling(true);
+    try {
+      const result = await promptInstall();
+      setDeferred(null);
+      if (result.ok && result.outcome === "accepted") {
+        dismiss();
+        return;
+      }
+      if (!result.ok && result.reason === "unavailable") {
+        setManualHint(true);
+        toast.message("Use your browser menu", {
+          description: "Choose “Install app” or “Add to Home Screen”.",
+        });
+      }
+    } finally {
+      setInstalling(false);
     }
-    deferred.prompt();
-    const choice = await deferred.userChoice;
-    setDeferred(null);
-    if (choice?.outcome === "accepted") dismiss();
   }
 
   if (!visible) return null;
+
+  const canInstall = Boolean(deferred) && !iosHint;
+  const showPreparing = !iosHint && !canInstall && !manualHint;
+
+  let description;
+  if (iosHint) {
+    description = "Tap Share, then “Add to Home Screen” for a full-screen app.";
+  } else if (canInstall) {
+    description = "Add Stockly to your home screen for faster sales on the floor.";
+  } else if (showPreparing) {
+    description = "Preparing install…";
+  } else {
+    description =
+      "Open your browser menu and choose “Install app” or “Add to Home Screen”.";
+  }
 
   return (
     <div
@@ -102,15 +136,11 @@ export function PwaInstallTip({ elevated = false }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">Install Stockly</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {iosHint
-              ? "Tap Share, then “Add to Home Screen” for a full-screen app."
-              : "Add Stockly to your home screen for faster sales on the floor."}
-          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {!iosHint ? (
-              <Button type="button" size="sm" onClick={install}>
-                Install
+            {canInstall ? (
+              <Button type="button" size="sm" onClick={install} disabled={installing}>
+                {installing ? "Installing…" : "Install"}
               </Button>
             ) : null}
             <Button type="button" size="sm" variant="ghost" onClick={dismiss}>

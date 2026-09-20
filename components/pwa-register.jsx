@@ -3,15 +3,38 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+import {
+  captureInstallPrompt,
+  clearInstallPrompt,
+} from "@/lib/pwa-install";
+
 /**
- * Registers the minimal Stockly service worker.
+ * Registers the minimal Stockly service worker and captures
+ * `beforeinstallprompt` early so the Install tip can one-click install.
  * In local `next dev` we still register so installability can be tested over
  * localhost; production HTTPS is required on real devices.
  */
 export function PwaRegister() {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!("serviceWorker" in navigator)) return;
+
+    function onBeforeInstall(event) {
+      captureInstallPrompt(event);
+    }
+
+    function onAppInstalled() {
+      clearInstallPrompt();
+    }
+
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    window.addEventListener("appinstalled", onAppInstalled);
+
+    if (!("serviceWorker" in navigator)) {
+      return () => {
+        window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+        window.removeEventListener("appinstalled", onAppInstalled);
+      };
+    }
 
     let refreshing = false;
 
@@ -49,6 +72,11 @@ export function PwaRegister() {
     }
 
     void register();
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+      window.removeEventListener("appinstalled", onAppInstalled);
+    };
   }, []);
 
   return null;
