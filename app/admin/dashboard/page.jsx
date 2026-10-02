@@ -257,10 +257,7 @@ export default async function AdminDashboardPage() {
                 Top units sold · {stats.notMovingCount ?? 0} not moving
               </p>
             </div>
-            <Link
-              href="/admin/inventory?focus=not-moving"
-              className="text-xs text-primary hover:underline"
-            >
+            <Link href="/admin/inventory" className="text-xs text-primary hover:underline">
               Inventory
             </Link>
           </div>
