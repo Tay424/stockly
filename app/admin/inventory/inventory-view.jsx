@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useTablePagination } from "@/hooks/use-table-pagination";
+import { sortPerformanceTable } from "@/lib/month-product-performance";
 import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery, filterTriggerClassName } from "@/lib/table-filter";
 
@@ -68,6 +69,12 @@ const FILTER_ITEMS = [
   { value: "needs", label: "Needs replenishment" },
 ];
 
+const PERF_FILTER_ITEMS = [
+  { value: "all", label: "All" },
+  { value: "moving", label: "Moving" },
+  { value: "not-moving", label: "Not moving" },
+];
+
 const receivedAtFormatter = new Intl.DateTimeFormat("en-GB", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -79,10 +86,19 @@ function nowLocalDateTimeInput() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function InventoryView({ initialHealth, initialMonth, initialReceives = [] }) {
+export function InventoryView({
+  initialHealth,
+  initialMonth,
+  initialReceives = [],
+  initialFocus = null,
+}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [perfSearch, setPerfSearch] = useState("");
+  const [perfFilter, setPerfFilter] = useState(
+    initialFocus === "not-moving" ? "not-moving" : "all",
+  );
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveProductId, setReceiveProductId] = useState("");
   const [receiveLocationId, setReceiveLocationId] = useState("");
@@ -150,6 +166,26 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
   const { page, paginated, setPage, totalItems, totalPages, pageSize } =
     useTablePagination(filtered);
 
+  const performanceFiltered = useMemo(() => {
+    let rows = filterByQuery(
+      month?.rows ?? [],
+      perfSearch,
+      (p) => `${p.productName} ${p.categoryName ?? ""}`,
+    );
+    if (perfFilter === "moving") rows = rows.filter((p) => !p.notMoving && (p.sold ?? 0) > 0);
+    else if (perfFilter === "not-moving") rows = rows.filter((p) => p.notMoving);
+    return sortPerformanceTable(rows, { focusNotMoving: perfFilter === "not-moving" });
+  }, [month, perfSearch, perfFilter]);
+
+  const {
+    page: perfPage,
+    paginated: perfPaginated,
+    setPage: setPerfPage,
+    totalItems: perfTotalItems,
+    totalPages: perfTotalPages,
+    pageSize: perfPageSize,
+  } = useTablePagination(performanceFiltered);
+
   function openReceive(productId = "") {
     setReceiveProductId(productId);
     setReceiveOpen(true);
@@ -177,7 +213,7 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
 
   return (
     <>
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-xs text-muted-foreground">Opening stock ({month.monthKey})</p>
           <p className="mt-1 text-2xl font-medium tabular-nums">{month.openingStock}</p>
@@ -187,6 +223,16 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
           <p className="text-xs text-muted-foreground">Received this month</p>
           <p className="mt-1 text-2xl font-medium tabular-nums">{month.received}</p>
           <p className="text-xs text-muted-foreground">From Inventory receive</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-xs text-muted-foreground">Sold this month</p>
+          <p className="mt-1 text-2xl font-medium tabular-nums">{month.sold ?? 0}</p>
+          <p className="text-xs text-muted-foreground">Units from sales (voids excluded)</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-xs text-muted-foreground">Not moving</p>
+          <p className="mt-1 text-2xl font-medium tabular-nums">{month.notMovingCount ?? 0}</p>
+          <p className="text-xs text-muted-foreground">Sold 0 · still on hand</p>
         </div>
         <div className="rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-xs text-muted-foreground">Needs replenishment</p>
@@ -211,7 +257,108 @@ export function InventoryView({ initialHealth, initialMonth, initialReceives = [
         </Button>
       </div>
 
+      <div className="mb-6 overflow-hidden rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-medium text-foreground">This month by product</h2>
+          <p className="text-xs text-muted-foreground">
+            Units only — wholesale pack revenue is not attributed to a single SKU. Not moving =
+            sold 0 this month with stock still on hand.
+          </p>
+        </div>
+        <TableToolbar
+          search={perfSearch}
+          searchPlaceholder="Search month performance…"
+          onSearchChange={(value) => {
+            setPerfSearch(value);
+            setPerfPage(1);
+          }}
+        >
+          <Select
+            value={perfFilter}
+            onValueChange={(value) => {
+              setPerfFilter(value);
+              setPerfPage(1);
+            }}
+          >
+            <SelectTrigger className={filterTriggerClassName}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERF_FILTER_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableToolbar>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Opening</TableHead>
+                <TableHead className="text-right">Received</TableHead>
+                <TableHead className="text-right">Sold</TableHead>
+                <TableHead className="text-right">Closing</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {perfPaginated.length === 0 ? (
+                <TableEmptyRow
+                  colSpan={7}
+                  message={
+                    perfFilter === "not-moving"
+                      ? "No not-moving products this month."
+                      : "No products match this filter."
+                  }
+                />
+              ) : (
+                perfPaginated.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium text-foreground">
+                      {row.productName}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {row.categoryName ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{row.openingStock}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.received}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.sold}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.closingStock}</TableCell>
+                    <TableCell>
+                      {row.notMoving ? (
+                        <StatusPill tone="warning">Not moving</StatusPill>
+                      ) : (row.sold ?? 0) > 0 ? (
+                        <StatusPill tone="success">Moving</StatusPill>
+                      ) : (
+                        <StatusPill tone="muted">No stock</StatusPill>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <TablePagination
+          page={perfPage}
+          pageSize={perfPageSize}
+          totalItems={perfTotalItems}
+          totalPages={perfTotalPages}
+          onPageChange={setPerfPage}
+        />
+      </div>
+
       <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-medium text-foreground">Stock on hand</h2>
+          <p className="text-xs text-muted-foreground">
+            Current levels and low-stock status — receive replenishment from here.
+          </p>
+        </div>
         <TableToolbar
           search={search}
           searchPlaceholder="Search inventory…"

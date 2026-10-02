@@ -72,6 +72,22 @@ export default async function AdminDashboardPage() {
         </div>
       ) : null}
 
+      {(stats.notMovingCount ?? 0) > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {stats.notMovingCount} product{stats.notMovingCount === 1 ? "" : "s"} not moving
+            this month (sold 0, still on hand).
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href="/admin/inventory?focus=not-moving" />}
+          >
+            View not moving
+          </Button>
+        </div>
+      ) : null}
+
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           value={formatMoney(totals.revenueCents)}
@@ -234,12 +250,20 @@ export default async function AdminDashboardPage() {
         </div>
 
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="border-b border-border px-4 py-3">
-            <h2 className="text-sm font-medium">Best sellers</h2>
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div>
+              <h2 className="text-sm font-medium">This month movers</h2>
+              <p className="text-xs text-muted-foreground">
+                Top units sold · {stats.notMovingCount ?? 0} not moving
+              </p>
+            </div>
+            <Link href="/admin/inventory" className="text-xs text-primary hover:underline">
+              Inventory
+            </Link>
           </div>
-          {stats.topProducts.length === 0 ? (
+          {(stats.monthMovers ?? []).length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-              No sales recorded yet.
+              No units sold this month yet.
             </p>
           ) : (
             <Table>
@@ -247,17 +271,15 @@ export default async function AdminDashboardPage() {
                 <TableRow>
                   <TableHead>Product</TableHead>
                   <TableHead className="text-right">Units</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
+                  <TableHead className="text-right">On hand</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stats.topProducts.map((p) => (
+                {stats.monthMovers.map((p) => (
                   <TableRow key={p.name}>
                     <TableCell className="font-medium text-foreground">{p.name}</TableCell>
                     <TableCell className="text-right tabular-nums">{p.unitsSold}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(p.revenueCents)}
-                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{p.closingStock}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
