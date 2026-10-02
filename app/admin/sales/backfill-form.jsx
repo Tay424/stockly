@@ -91,6 +91,10 @@ export function BackfillSaleForm({ initialProducts }) {
         wholesalePackPriceCents: product.wholesalePackPriceCents ?? 0,
         retailPackQty: product.retailPackQty ?? 0,
         retailPackPriceCents: product.retailPackPriceCents ?? 0,
+        promoWholesalePackQty: product.promoWholesalePackQty ?? 0,
+        promoWholesalePackPriceCents: product.promoWholesalePackPriceCents ?? 0,
+        promoStartsAt: product.promoStartsAt ?? null,
+        promoEndsAt: product.promoEndsAt ?? null,
       });
     }
     return map;

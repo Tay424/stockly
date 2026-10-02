@@ -11,6 +11,14 @@ export async function fetchCategoriesAction() {
   return listCategories();
 }
 
+/** "" -> null, otherwise a Date. Returns undefined when the value is unparseable. */
+function readDate(value) {
+  const raw = String(value ?? "").trim();
+  if (raw === "") return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
 function readForm(formData) {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -58,6 +66,46 @@ function readForm(formData) {
     };
   }
 
+  const promoWholesalePackQty = Number(
+    String(formData.get("promoWholesalePackQty") ?? "0").trim(),
+  );
+  if (!Number.isInteger(promoWholesalePackQty) || promoWholesalePackQty < 0) {
+    return { error: "Promo wholesale pack quantity must be a whole number of 0 or more." };
+  }
+
+  const promoPriceRaw = String(formData.get("promoWholesalePackPrice") ?? "").trim();
+  let promoWholesalePackPriceCents = 0;
+  const promoStartsAt = readDate(formData.get("promoStartsAt"));
+  const promoEndsAt = readDate(formData.get("promoEndsAt"));
+
+  if (promoStartsAt === undefined || promoEndsAt === undefined) {
+    return { error: "Promo dates must be valid." };
+  }
+
+  if (promoWholesalePackQty > 0) {
+    const cents = parseMoneyToCents(promoPriceRaw === "" ? "0" : promoPriceRaw);
+    if (cents === null || cents <= 0) {
+      return { error: "Promo pack price is required when a promo pack quantity is set." };
+    }
+    promoWholesalePackPriceCents = cents;
+
+    if (!promoStartsAt || !promoEndsAt) {
+      return { error: "A temporary wholesale promo needs both a start and an end date." };
+    }
+    if (promoEndsAt <= promoStartsAt) {
+      return { error: "The promo must end after it starts." };
+    }
+    if (retailPackQty > 0 && promoWholesalePackQty % retailPackQty !== 0) {
+      return {
+        error: `Promo wholesale pack quantity (${promoWholesalePackQty}) must be a multiple of the retail pack (${retailPackQty}).`,
+      };
+    }
+  } else if (promoPriceRaw !== "") {
+    const cents = parseMoneyToCents(promoPriceRaw);
+    if (cents === null) return { error: "Promo pack price must be a valid amount." };
+    promoWholesalePackPriceCents = cents;
+  }
+
   return {
     fields: {
       name,
@@ -66,6 +114,11 @@ function readForm(formData) {
       wholesalePackPriceCents,
       retailPackQty,
       retailPackPriceCents,
+      promoWholesalePackQty: promoWholesalePackQty > 0 ? promoWholesalePackQty : 0,
+      promoWholesalePackPriceCents:
+        promoWholesalePackQty > 0 ? promoWholesalePackPriceCents : 0,
+      promoStartsAt: promoWholesalePackQty > 0 ? promoStartsAt : null,
+      promoEndsAt: promoWholesalePackQty > 0 ? promoEndsAt : null,
     },
   };
 }
