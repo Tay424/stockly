@@ -17,7 +17,7 @@ export default async function MyExpensesPage() {
         description={
           needsChanges
             ? `${needsChanges} need changes before they can be approved.`
-            : "Apply with a receipt. Pending applications stay out of monthly accounts until approved."
+            : "Apply expenses for approval. Pending applications stay out of monthly accounts until approved."
         }
       />
       <MyExpensesTable initialExpenses={expenses} />
