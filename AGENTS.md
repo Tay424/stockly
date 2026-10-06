@@ -81,8 +81,8 @@ A simple stock management system with two roles:
 - Attendant **cannot** edit while `pending`; can edit only when `changes_requested`; `approved` is frozen.
 - Pending: visible in pending queue + filterable on Expenses list; **never** in monthly accounts/profit until `approved`.
 - Admin UX: pending queue + Expenses table status filter; detail with **receipt zoom**; Approve or Request changes (+ reason).
-- Receipt: **required** for attendant apps; one image JPEG/PNG/WebP (phone OK); PDF later. UploadThing when `UPLOADTHING_TOKEN` is set; local `public/receipts` fallback otherwise.
-- Categories: fixed list — Transport, Stock purchase, Utilities, Packaging, Misc + optional notes.
+- Receipt: **optional** for attendant apps; JPEG/PNG/WebP when attached. UploadThing when `UPLOADTHING_TOKEN` is set; local `public/receipts` fallback otherwise.
+- Categories: fixed list — Transport, Stock purchase, Utilities, Packaging, Owner withdrawal, Misc + optional notes.
 - Notifications: in-app status badges **+ email stub** (logs when SMTP isn’t configured).
 - **Legacy:** `pnpm migrate-expenses` promotes existing expenses → `approved`.
 

@@ -268,7 +268,7 @@ export function MyExpensesTable({ initialExpenses }) {
             <DialogDescription>
               {editing?.id
                 ? "Update the details (and receipt if needed), then resubmit for approval."
-                : "Applications stay pending until an admin approves them. A receipt photo is required."}
+                : "Applications stay pending until an admin approves them. A receipt photo is optional."}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -338,15 +338,12 @@ export function MyExpensesTable({ initialExpenses }) {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="my-expense-receipt">
-                Receipt {editing?.id ? "(optional if already attached)" : "(required)"}
-              </Label>
+              <Label htmlFor="my-expense-receipt">Receipt (optional)</Label>
               <Input
                 id="my-expense-receipt"
                 name="receipt"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                required={!editing?.id}
               />
               {editing?.receiptUrl ? (
                 <p className="text-xs text-muted-foreground">

@@ -39,7 +39,7 @@ export async function fetchMyExpensesAction() {
   return listExpensesBy(user.id);
 }
 
-/** Attendant apply (pending) or resubmit after changes_requested. Receipt required on create. */
+/** Attendant apply (pending) or resubmit after changes_requested. Receipt optional. */
 export async function saveMyExpenseAction(id, formData) {
   const { user } = await requireUser();
   const { error, fields } = readCoreForm(formData);
@@ -68,8 +68,6 @@ export async function saveMyExpenseAction(id, formData) {
         receiptMime: stored.receipt.mime,
         receiptName: stored.receipt.name,
       };
-    } else if (!existing.receiptUrl) {
-      return { error: "A receipt image is required." };
     }
 
     const result = await updateExpenseApplication(
@@ -82,9 +80,12 @@ export async function saveMyExpenseAction(id, formData) {
     );
     if (!result.ok) return { error: result.reason };
   } else {
-    if (!hasNewFile) return { error: "A receipt image is required." };
-    const stored = await storeReceiptFile(file);
-    if (!stored.ok) return { error: stored.reason };
+    let receipt = null;
+    if (hasNewFile) {
+      const stored = await storeReceiptFile(file);
+      if (!stored.ok) return { error: stored.reason };
+      receipt = stored.receipt;
+    }
 
     const loc = await requireUserLocation(user);
     if (!loc.ok) return { error: loc.reason };
@@ -96,10 +97,14 @@ export async function saveMyExpenseAction(id, formData) {
       recordedByName: user.name,
       locationId: loc.location.id,
       locationName: loc.location.name,
-      receiptUrl: stored.receipt.url,
-      receiptKey: stored.receipt.key,
-      receiptMime: stored.receipt.mime,
-      receiptName: stored.receipt.name,
+      ...(receipt
+        ? {
+            receiptUrl: receipt.url,
+            receiptKey: receipt.key,
+            receiptMime: receipt.mime,
+            receiptName: receipt.name,
+          }
+        : {}),
     });
   }
 
