@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, PencilIcon, PlusIcon, TagIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { StatusPill } from "@/components/status-pill";
 import { TableEmptyRow, TableToolbar } from "@/components/table-toolbar";
 import { TablePagination } from "@/components/table-pagination";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,10 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useTablePagination } from "@/hooks/use-table-pagination";
-import { formatMoney } from "@/lib/pricing";
+import { categoryWholesalePromoStatus, formatMoney } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
 import { filterByQuery } from "@/lib/table-filter";
+import { cn } from "@/lib/utils";
 
 import { deleteCategoryAction, fetchCategoriesAction, repriceNhavaSaltSalesAction, saveCategoryAction } from "./actions";
 
@@ -50,10 +52,43 @@ function toAmount(cents) {
   return ((cents ?? 0) / 100).toFixed(2);
 }
 
+/** ISO string -> the "YYYY-MM-DDTHH:mm" local format datetime-local expects. */
+function toLocalInputValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const dateFormatter = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
+const PROMO_TONES = { active: "success", scheduled: "info", expired: "muted" };
+
+function PromoCell({ category }) {
+  const status = categoryWholesalePromoStatus(category);
+  if (status === "none") return <span className="text-muted-foreground">—</span>;
+
+  const qty = category.promoWholesalePackQty ?? 0;
+  const window = [category.promoStartsAt, category.promoEndsAt]
+    .map((d) => (d ? dateFormatter.format(new Date(d)) : "—"))
+    .join(" → ");
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <StatusPill tone={PROMO_TONES[status]}>
+        {qty} @ {formatMoney(category.promoWholesalePackPriceCents ?? 0)}
+        {status === "active" ? "" : ` · ${status}`}
+      </StatusPill>
+      <span className="whitespace-nowrap text-xs text-muted-foreground">{window}</span>
+    </div>
+  );
+}
+
 export function CategoriesTable({ initialCategories }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null); // null = closed, {} = new
+  const [promoOpen, setPromoOpen] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   const { data: categories } = useQuery({
@@ -125,6 +160,11 @@ export function CategoriesTable({ initialCategories }) {
   const { page, paginated, setPage, totalItems, totalPages, pageSize } =
     useTablePagination(filtered);
 
+  function openEditor(category) {
+    setPromoOpen((category?.promoWholesalePackQty ?? 0) > 0);
+    setEditing(category);
+  }
+
   function onSubmit(event) {
     event.preventDefault();
     saveMutation.mutate({
@@ -158,7 +198,7 @@ export function CategoriesTable({ initialCategories }) {
         >
           {repriceNhavaMutation.isPending ? "Repricing Nhava…" : "Reprice Nhava Salt sales"}
         </Button>
-        <Button onClick={() => setEditing({})}>
+        <Button onClick={() => openEditor({})}>
           <PlusIcon />
           New category
         </Button>
@@ -181,13 +221,14 @@ export function CategoriesTable({ initialCategories }) {
                 <TableHead>Description</TableHead>
                 <TableHead>Retail pack</TableHead>
                 <TableHead>Wholesale pack</TableHead>
+                <TableHead>Promo</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableEmptyRow
-                  colSpan={5}
+                  colSpan={6}
                   message={search ? "No categories match your search." : "No categories yet."}
                 />
               ) : (
@@ -203,13 +244,16 @@ export function CategoriesTable({ initialCategories }) {
                     <TableCell className="tabular-nums text-muted-foreground">
                       {wholesalePackLabel(category)}
                     </TableCell>
+                    <TableCell>
+                      <PromoCell category={category} />
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon-sm"
                           aria-label={`Edit ${category.name}`}
-                          onClick={() => setEditing(category)}
+                          onClick={() => openEditor(category)}
                         >
                           <PencilIcon className="size-4" />
                         </Button>
@@ -240,7 +284,7 @@ export function CategoriesTable({ initialCategories }) {
       </div>
 
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit category" : "New category"}</DialogTitle>
             <DialogDescription>
@@ -336,6 +380,102 @@ export function CategoriesTable({ initialCategories }) {
                 </p>
               </div>
             </div>
+
+            <div className="grid gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-between"
+                aria-expanded={promoOpen}
+                onClick={() => setPromoOpen((open) => !open)}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <TagIcon className="size-4" />
+                  Month-end / temporary wholesale promo
+                  {(editing?.promoWholesalePackQty ?? 0) > 0 ? (
+                    <StatusPill
+                      tone={PROMO_TONES[categoryWholesalePromoStatus(editing)] ?? "muted"}
+                    >
+                      {categoryWholesalePromoStatus(editing)}
+                    </StatusPill>
+                  ) : null}
+                </span>
+                <ChevronDownIcon
+                  className={cn(
+                    "size-4 text-muted-foreground transition-transform",
+                    promoOpen && "rotate-180",
+                  )}
+                />
+              </Button>
+
+              {/* Keep fields mounted while collapsed so values still submit / persist. */}
+              <fieldset
+                className={cn(
+                  "grid gap-4 rounded-lg border border-border p-4",
+                  !promoOpen && "hidden",
+                )}
+              >
+                <legend className="sr-only">Temporary wholesale promo</legend>
+                <p className="text-xs text-muted-foreground">
+                  During the window, Sales uses this pack qty and price instead of the permanent
+                  wholesale pack. Retail packs and unit prices stay unchanged. Set qty to 0 to
+                  clear the promo.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="category-promo-pack-qty">Promo pack qty</Label>
+                    <Input
+                      id="category-promo-pack-qty"
+                      name="promoWholesalePackQty"
+                      type="number"
+                      min={0}
+                      step={1}
+                      defaultValue={editing?.promoWholesalePackQty ?? 0}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="category-promo-pack-price">Promo pack price</Label>
+                    <Input
+                      id="category-promo-pack-price"
+                      name="promoWholesalePackPrice"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      defaultValue={
+                        editing?.id && (editing?.promoWholesalePackQty ?? 0) > 0
+                          ? toAmount(editing.promoWholesalePackPriceCents)
+                          : "40.00"
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="category-promo-start">Starts</Label>
+                    <Input
+                      id="category-promo-start"
+                      name="promoStartsAt"
+                      type="datetime-local"
+                      defaultValue={toLocalInputValue(editing?.promoStartsAt)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="category-promo-end">Ends</Label>
+                    <Input
+                      id="category-promo-end"
+                      name="promoEndsAt"
+                      type="datetime-local"
+                      defaultValue={toLocalInputValue(editing?.promoEndsAt)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Required when promo qty is set. End is exclusive (pricing reverts at this
+                      instant).
+                    </p>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
                 Cancel

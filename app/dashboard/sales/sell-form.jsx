@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { formatMoney, priceReceipt } from "@/lib/pricing";
+import { effectiveWholesalePack, formatMoney, priceReceipt } from "@/lib/pricing";
 import { queryKeys } from "@/lib/query-keys";
 
 import {
@@ -75,6 +75,10 @@ export function SellForm({ initialProducts }) {
         wholesalePackPriceCents: product.wholesalePackPriceCents ?? 0,
         retailPackQty: product.retailPackQty ?? 0,
         retailPackPriceCents: product.retailPackPriceCents ?? 0,
+        promoWholesalePackQty: product.promoWholesalePackQty ?? 0,
+        promoWholesalePackPriceCents: product.promoWholesalePackPriceCents ?? 0,
+        promoStartsAt: product.promoStartsAt ?? null,
+        promoEndsAt: product.promoEndsAt ?? null,
       });
     }
     return map;
@@ -85,11 +89,21 @@ export function SellForm({ initialProducts }) {
     for (const product of products ?? []) {
       const key = product.categoryId ?? "";
       if (!groups.has(key)) {
+        const category = {
+          wholesalePackQty: product.wholesalePackQty ?? 0,
+          wholesalePackPriceCents: product.wholesalePackPriceCents ?? 0,
+          promoWholesalePackQty: product.promoWholesalePackQty ?? 0,
+          promoWholesalePackPriceCents: product.promoWholesalePackPriceCents ?? 0,
+          promoStartsAt: product.promoStartsAt ?? null,
+          promoEndsAt: product.promoEndsAt ?? null,
+        };
+        const effective = effectiveWholesalePack(category);
         groups.set(key, {
           categoryId: key,
           categoryName: product.categoryName ?? "Category",
-          wholesalePackQty: product.wholesalePackQty ?? 0,
-          wholesalePackPriceCents: product.wholesalePackPriceCents ?? 0,
+          wholesalePackQty: effective.packQty,
+          wholesalePackPriceCents: effective.packPriceCents,
+          wholesalePromo: effective.promo,
           retailPackQty: product.retailPackQty ?? 0,
           retailPackPriceCents: product.retailPackPriceCents ?? 0,
           products: [],
@@ -309,7 +323,8 @@ export function SellForm({ initialProducts }) {
                           ) : null}
                           {(group.wholesalePackQty ?? 0) > 0 ? (
                             <span>
-                              Wholesale {group.wholesalePackQty} @{" "}
+                              {group.wholesalePromo ? "Promo wholesale" : "Wholesale"}{" "}
+                              {group.wholesalePackQty} @{" "}
                               {formatMoney(group.wholesalePackPriceCents ?? 0)}
                             </span>
                           ) : null}
@@ -482,9 +497,12 @@ export function SellForm({ initialProducts }) {
                             <div key={`w-${pack.categoryId}`} className="grid gap-1.5">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex min-w-0 items-center gap-2">
-                                  <StatusPill tone="info">Wholesale</StatusPill>
+                                  <StatusPill tone={pack.promo ? "success" : "info"}>
+                                    {pack.promo ? "Promo wholesale" : "Wholesale"}
+                                  </StatusPill>
                                   <span className="truncate font-medium">
                                     {pack.categoryName} ×{pack.packCount}
+                                    {pack.packQty ? ` (${pack.packQty} ea)` : ""}
                                   </span>
                                 </div>
                                 <span className="shrink-0 font-semibold tabular-nums">

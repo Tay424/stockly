@@ -136,7 +136,8 @@ export default async function SaleInvoicePage({ params }) {
                       <div className="min-w-0">
                         <p className="font-medium text-foreground">{pack.categoryName} pack</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          Wholesale ×{pack.packCount}
+                          {pack.promo ? "Promo wholesale" : "Wholesale"} ×{pack.packCount}
+                          {pack.packQty ? ` · ${pack.packQty} ea` : ""}
                         </p>
                         {(pack.contributions ?? []).length > 0 ? (
                           <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
