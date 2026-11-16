@@ -110,13 +110,15 @@ export function SalesTable({ initialSales }) {
   const { page, paginated, setPage, totalItems, totalPages, pageSize } =
     useTablePagination(filtered);
 
-  const revenue = useMemo(
-    () =>
-      filtered
-        .filter((sale) => sale.status !== SALE_STATUS.voided)
-        .reduce((sum, sale) => sum + (sale.totalCents ?? 0), 0),
-    [filtered],
-  );
+  const revenueByCurrency = useMemo(() => {
+    const map = new Map();
+    for (const sale of filtered) {
+      if (sale.status === SALE_STATUS.voided) continue;
+      const code = sale.currency || "USD";
+      map.set(code, (map.get(code) ?? 0) + (sale.totalCents ?? 0));
+    }
+    return [...map.entries()];
+  }, [filtered]);
 
   function openVoid(sale) {
     setVoidReason(
@@ -136,7 +138,12 @@ export function SalesTable({ initialSales }) {
         }}
       >
         <span className="text-sm text-muted-foreground">
-          Total <span className="font-medium text-foreground tabular-nums">{formatMoney(revenue)}</span>
+          Total{" "}
+          <span className="font-medium text-foreground tabular-nums">
+            {revenueByCurrency.length === 0
+              ? formatMoney(0)
+              : revenueByCurrency.map(([code, cents]) => formatMoney(cents, code)).join(" · ")}
+          </span>
         </span>
         <Button
           variant="outline"
@@ -227,7 +234,7 @@ export function SalesTable({ initialSales }) {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{sale.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents)}
+                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents, sale.currency)}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={sale.wholesale ? "info" : "muted"}>
@@ -235,7 +242,7 @@ export function SalesTable({ initialSales }) {
                     </StatusPill>
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
-                    {formatMoney(sale.totalCents)}
+                    {formatMoney(sale.totalCents, sale.currency)}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={STATUS_TONE[sale.status] ?? "muted"}>
@@ -310,7 +317,7 @@ export function SalesTable({ initialSales }) {
                   <span className="font-medium text-foreground">{voidTarget.productName}</span>
                   {" · "}
                   {voidTarget.quantity} unit{voidTarget.quantity === 1 ? "" : "s"} ·{" "}
-                  {formatMoney(voidTarget.totalCents)}
+                  {formatMoney(voidTarget.totalCents, voidTarget.currency)}
                   {Array.isArray(voidTarget.lines) && voidTarget.lines.length > 1
                     ? ` · ${voidTarget.lines.length} lines`
                     : ""}

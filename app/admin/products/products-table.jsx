@@ -78,7 +78,12 @@ function DiscountCell({ product }) {
   );
 }
 
-export function ProductsTable({ initialCategories, initialProducts }) {
+export function ProductsTable({
+  initialCategories,
+  initialProducts,
+  priceLocations = [],
+  locationPrices = [],
+}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -412,6 +417,44 @@ export function ProductsTable({ initialCategories, initialProducts }) {
                 />
               </div>
             </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="product-source">Usual source</Label>
+              <select
+                id="product-source"
+                name="usualSource"
+                defaultValue={editing?.usualSource || "from_johannesburg"}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="produced_at_harare">Produced at Harare</option>
+                <option value="from_johannesburg">From Johannesburg</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Salts are usually produced at Harare. Other goods usually arrive from Johannesburg.
+              </p>
+            </div>
+
+            {priceLocations.map((location) => {
+              const saved = locationPrices.find(
+                (row) => row.locationId === location.id && row.productId === editing?.id,
+              );
+              return (
+                <div key={location.id} className="grid gap-2">
+                  <Label htmlFor={`loc-retail-${location.id}`}>
+                    {location.name} retail ({location.currency})
+                  </Label>
+                  <Input
+                    id={`loc-retail-${location.id}`}
+                    name={`locRetail_${location.id}`}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={saved ? (saved.retailPriceCents / 100).toFixed(2) : ""}
+                    placeholder="Required before this shop can sell it"
+                  />
+                </div>
+              );
+            })}
 
             <div className="grid gap-2">
               <Label htmlFor="product-low-stock">Low stock at</Label>

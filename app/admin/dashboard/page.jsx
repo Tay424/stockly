@@ -27,10 +27,12 @@ function formatMonth(key) {
   return monthFormatter.format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({ searchParams }) {
+  const params = await searchParams;
+  const currency = params?.currency === "ZAR" ? "ZAR" : "USD";
   const [stats, charts, branchToday, branchMonth] = await Promise.all([
-    adminStats(),
-    adminChartData(),
+    adminStats(new Date(), currency),
+    adminChartData(new Date(), currency),
     branchPerformanceToday(),
     branchPerformanceMonth(),
   ]);
@@ -48,7 +50,17 @@ export default async function AdminDashboardPage() {
       <PageHeader
         title="Dashboard"
         description={`Shop performance for ${charts.periodLabel.toLowerCase()}, with ${formatMonth(stats.month)} context below.`}
-        action={<ShopBackupButtons />}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant={currency === "USD" ? "default" : "outline"} size="sm" render={<Link href="/admin/dashboard" />}>
+              USD
+            </Button>
+            <Button variant={currency === "ZAR" ? "default" : "outline"} size="sm" render={<Link href="/admin/dashboard?currency=ZAR" />}>
+              ZAR
+            </Button>
+            <ShopBackupButtons />
+          </div>
+        }
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
@@ -90,17 +102,17 @@ export default async function AdminDashboardPage() {
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          value={formatMoney(totals.revenueCents)}
+          value={formatMoney(totals.revenueCents, currency)}
           label="Sold today"
           hint={`${totals.saleCount} sales · ${totals.unitsSold} units`}
         />
         <StatCard
-          value={formatMoney(thisMonth.revenueCents)}
+          value={formatMoney(thisMonth.revenueCents, currency)}
           label="Sales this month"
           hint={`${thisMonth.saleCount} sales · ${thisMonth.unitsSold} units`}
         />
         <StatCard
-          value={formatMoney(thisMonth.profitCents)}
+          value={formatMoney(thisMonth.profitCents, currency)}
           label="Profit this month"
           hint="Sales minus expenses"
         />
@@ -115,7 +127,7 @@ export default async function AdminDashboardPage() {
         <div className="border-b border-border px-4 py-3">
           <h2 className="text-sm font-medium">Branch performance</h2>
           <p className="text-xs text-muted-foreground">
-            Harare vs Gweru — sales revenue, approved expenses, and net (today and this month).
+            Each branch in its own currency. Shop totals above stay in {currency}.
           </p>
         </div>
         <Table>
@@ -145,10 +157,10 @@ export default async function AdminDashboardPage() {
                     ) : null}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(todayRow.revenueCents)}
+                    {formatMoney(todayRow.revenueCents, todayRow.currency)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(todayRow.expenseCents)}
+                    {formatMoney(todayRow.expenseCents, todayRow.currency)}
                   </TableCell>
                   <TableCell
                     className={
@@ -157,13 +169,13 @@ export default async function AdminDashboardPage() {
                         : "text-right font-medium tabular-nums"
                     }
                   >
-                    {formatMoney(todayRow.netCents)}
+                    {formatMoney(todayRow.netCents, todayRow.currency)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(monthRow.revenueCents ?? 0)}
+                    {formatMoney(monthRow.revenueCents ?? 0, todayRow.currency)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(monthRow.expenseCents ?? 0)}
+                    {formatMoney(monthRow.expenseCents ?? 0, todayRow.currency)}
                   </TableCell>
                   <TableCell
                     className={
@@ -172,7 +184,7 @@ export default async function AdminDashboardPage() {
                         : "text-right font-medium tabular-nums"
                     }
                   >
-                    {formatMoney(monthRow.netCents ?? 0)}
+                    {formatMoney(monthRow.netCents ?? 0, todayRow.currency)}
                   </TableCell>
                 </TableRow>
               );
@@ -186,7 +198,7 @@ export default async function AdminDashboardPage() {
           title="Revenue today"
           description="Shop totals by hour — voided sales are excluded."
         >
-          <VerticalBarChart data={hourly} valueKey="revenueCents" formatValue={formatMoney} />
+          <VerticalBarChart data={hourly} valueKey="revenueCents" formatValue={(cents) => formatMoney(cents, currency)} />
         </ChartPanel>
 
         <ChartPanel
@@ -194,7 +206,7 @@ export default async function AdminDashboardPage() {
           description="Who moved the till — revenue share for today."
         >
           <div className="-m-4">
-            <HorizontalBarList items={attendants} formatValue={formatMoney} />
+            <HorizontalBarList items={attendants} formatValue={(cents) => formatMoney(cents, currency)} />
           </div>
         </ChartPanel>
       </div>
@@ -228,10 +240,10 @@ export default async function AdminDashboardPage() {
                       {formatMonth(m.month)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatMoney(m.revenueCents)}
+                      {formatMoney(m.revenueCents, currency)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatMoney(m.expensesCents)}
+                      {formatMoney(m.expensesCents, currency)}
                     </TableCell>
                     <TableCell
                       className={
@@ -240,7 +252,7 @@ export default async function AdminDashboardPage() {
                           : "text-right font-medium tabular-nums"
                       }
                     >
-                      {formatMoney(m.profitCents)}
+                      {formatMoney(m.profitCents, currency)}
                     </TableCell>
                   </TableRow>
                 ))}

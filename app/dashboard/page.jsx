@@ -7,17 +7,21 @@ import { Button } from "@/components/ui/button";
 import { listSellableProducts } from "@/lib/catalog";
 import { sellerChartData, sellerStats } from "@/lib/finance";
 import { formatMoney } from "@/lib/pricing";
+import { requireUserLocation } from "@/lib/locations";
 import { requireUser } from "@/lib/session";
 
 export default async function DashboardPage() {
   const { user } = await requireUser();
+  const loc = await requireUserLocation(user);
+  const currency = loc.ok ? loc.location.currency || "USD" : "USD";
   const [products, stats, charts] = await Promise.all([
-    listSellableProducts(),
+    listSellableProducts({ locationId: loc.ok ? loc.location.id : null }),
     sellerStats(user.id),
     sellerChartData(user.id),
   ]);
 
   const inStock = products.reduce((sum, p) => sum + p.stock, 0);
+  const money = (cents) => formatMoney(cents, currency);
 
   return (
     <>
@@ -28,17 +32,17 @@ export default async function DashboardPage() {
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          value={formatMoney(stats.today.revenueCents)}
+          value={money(stats.today.revenueCents)}
           label="You sold today"
           hint={`${stats.today.saleCount} sales · ${stats.today.unitsSold} units`}
         />
         <StatCard
-          value={formatMoney(stats.month.revenueCents)}
+          value={money(stats.month.revenueCents)}
           label="You sold this month"
           hint={`${stats.month.saleCount} sales · ${stats.month.unitsSold} units`}
         />
         <StatCard
-          value={formatMoney(stats.expensesThisMonth.amountCents)}
+          value={money(stats.expensesThisMonth.amountCents)}
           label="You spent this month"
           hint={`${stats.expensesThisMonth.count} expenses recorded`}
         />
@@ -57,7 +61,7 @@ export default async function DashboardPage() {
           <VerticalBarChart
             data={charts.hourly}
             valueKey="revenueCents"
-            formatValue={formatMoney}
+            formatValue={(cents) => formatMoney(cents, currency)}
             emptyMessage="No sales from you yet today."
           />
         </ChartPanel>

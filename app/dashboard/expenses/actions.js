@@ -97,6 +97,7 @@ export async function saveMyExpenseAction(id, formData) {
       recordedByName: user.name,
       locationId: loc.location.id,
       locationName: loc.location.name,
+      currency: loc.location.currency || "USD",
       ...(receipt
         ? {
             receiptUrl: receipt.url,

@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { allowedTransferDestinations } from "@/lib/location-rules";
 import { queryKeys } from "@/lib/query-keys";
 import { TRANSFER_STATUS } from "@/lib/stock-ledger";
 
@@ -70,8 +71,13 @@ export function TransfersPanel({ products = [] }) {
     queryFn: () => fetchTransfersAction({}),
   });
 
-  const hub = useMemo(() => locations.find((l) => l.isHub), [locations]);
-  const branch = useMemo(() => locations.find((l) => !l.isHub), [locations]);
+  const hubs = useMemo(() => locations.filter((l) => l.isHub), [locations]);
+  const fromId = fromLocationId || hubs[0]?.id || "";
+  const from = useMemo(() => locations.find((l) => l.id === fromId), [locations, fromId]);
+  const destinations = useMemo(
+    () => allowedTransferDestinations(from, locations),
+    [from, locations],
+  );
 
   const pending = useMemo(
     () => transfers.filter((t) => t.status === TRANSFER_STATUS.inTransit),
@@ -127,8 +133,7 @@ export function TransfersPanel({ products = [] }) {
       toast.error("Pick a product.");
       return;
     }
-    const fromId = fromLocationId || hub?.id;
-    const toId = toLocationId || branch?.id;
+    const toId = toLocationId || destinations[0]?.id;
     if (!fromId || !toId) {
       toast.error("Choose source and destination branches.");
       return;
@@ -148,7 +153,7 @@ export function TransfersPanel({ products = [] }) {
           <div>
             <h2 className="text-sm font-medium text-foreground">Transfers</h2>
             <p className="text-xs text-muted-foreground">
-              Send Harare → Gweru via In transit. Confirm on arrival or cancel to return stock.
+              A hub sends to its own branches, or to another hub. Cape Town only receives from Johannesburg.
             </p>
           </div>
         </div>
@@ -176,14 +181,14 @@ export function TransfersPanel({ products = [] }) {
           <div className="grid gap-1.5">
             <Label>From</Label>
             <Select
-              value={fromLocationId || hub?.id || ""}
+              value={fromId}
               onValueChange={setFromLocationId}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="From" />
               </SelectTrigger>
               <SelectContent>
-                {locations.map((loc) => (
+                {hubs.map((loc) => (
                   <SelectItem key={loc.id} value={loc.id}>
                     {loc.name}
                   </SelectItem>
@@ -194,14 +199,14 @@ export function TransfersPanel({ products = [] }) {
           <div className="grid gap-1.5">
             <Label>To</Label>
             <Select
-              value={toLocationId || branch?.id || ""}
+              value={destinations.some((loc) => loc.id === toLocationId) ? toLocationId : destinations[0]?.id || ""}
               onValueChange={setToLocationId}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="To" />
               </SelectTrigger>
               <SelectContent>
-                {locations.map((loc) => (
+                {destinations.map((loc) => (
                   <SelectItem key={loc.id} value={loc.id}>
                     {loc.name}
                   </SelectItem>

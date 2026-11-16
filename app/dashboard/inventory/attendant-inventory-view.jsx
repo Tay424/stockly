@@ -123,7 +123,9 @@ export function AttendantInventoryView({
 
   const openIncoming = transferData?.openIncoming ?? [];
   const transfers = transferData?.transfers ?? [];
+  const destinations = transferData?.destinations ?? [];
   const isHub = Boolean(location?.isHub);
+  const [transferToId, setTransferToId] = useState("");
 
   const receiveMutation = useMutation({
     mutationFn: (formData) => receiveStockAsAttendantAction(formData),
@@ -213,6 +215,7 @@ export function AttendantInventoryView({
     }
     const formData = new FormData(event.currentTarget);
     formData.set("productId", transferProductId);
+    formData.set("toLocationId", transferToId || destinations[0]?.id || "");
     sendMutation.mutate(formData);
   }
 
@@ -417,8 +420,8 @@ export function AttendantInventoryView({
             <h2 className="text-sm font-medium text-foreground">Branch transfers</h2>
             <p className="text-xs text-muted-foreground">
               {isHub
-                ? "Send stock to Gweru (moves into In transit until they confirm)."
-                : "Confirm stock arriving from Harare into Gweru."}
+                ? "Send stock to a branch you supply, or to another hub."
+                : "Confirm stock arriving from your supply hub."}
             </p>
           </div>
         </div>
@@ -451,9 +454,27 @@ export function AttendantInventoryView({
               <Label htmlFor="send-reason">Note</Label>
               <Input id="send-reason" name="reason" placeholder="Optional" />
             </div>
+            <div className="grid gap-1.5">
+              <Label>To</Label>
+              <Select
+                value={transferToId || destinations[0]?.id || ""}
+                onValueChange={setTransferToId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Destination" />
+                </SelectTrigger>
+                <SelectContent>
+                  {destinations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-end">
               <Button type="submit" disabled={!transferProductId || sendMutation.isPending}>
-                {sendMutation.isPending ? "Sending…" : "Send to Gweru"}
+                {sendMutation.isPending ? "Sending…" : "Send"}
               </Button>
             </div>
           </form>

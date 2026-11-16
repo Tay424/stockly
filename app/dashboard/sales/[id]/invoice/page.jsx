@@ -27,6 +27,7 @@ export default async function SaleInvoicePage({ params }) {
   const retailLines = Array.isArray(sale.retailLines) ? sale.retailLines : [];
   const isLegacy = packs.length === 0 && retailPacks.length === 0 && retailLines.length === 0;
   const voided = sale.status === SALE_STATUS.voided;
+  const money = (cents) => formatMoney(cents, sale.currency);
   const shortId = String(sale.id).slice(-8).toUpperCase();
   const lineCount =
     (packs.length + retailPacks.length + retailLines.length) || (isLegacy ? 1 : 0);
@@ -34,7 +35,7 @@ export default async function SaleInvoicePage({ params }) {
   const shareText = [
     `Stockly receipt #${shortId}`,
     sale.clientName ? `Bill to: ${sale.clientName}` : null,
-    `Total: ${formatMoney(sale.totalCents)}`,
+    `Total: ${money(sale.totalCents)}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -149,7 +150,7 @@ export default async function SaleInvoicePage({ params }) {
                         ) : null}
                       </div>
                       <p className="shrink-0 font-semibold tabular-nums text-foreground">
-                        {formatMoney(pack.totalCents)}
+                        {money(pack.totalCents)}
                       </p>
                     </div>
                   </li>
@@ -164,7 +165,7 @@ export default async function SaleInvoicePage({ params }) {
                           Retail pack ×{pack.packCount}
                           {pack.packQty ? ` (${pack.packQty} units each)` : ""}
                           {pack.packPriceCents != null
-                            ? ` · ${formatMoney(pack.packPriceCents)} each`
+                            ? ` · ${money(pack.packPriceCents)} each`
                             : ""}
                         </p>
                         {(pack.contributions ?? []).length > 0 ? (
@@ -178,7 +179,7 @@ export default async function SaleInvoicePage({ params }) {
                         ) : null}
                       </div>
                       <p className="shrink-0 font-semibold tabular-nums text-foreground">
-                        {formatMoney(pack.totalCents)}
+                        {money(pack.totalCents)}
                       </p>
                     </div>
                   </li>
@@ -192,11 +193,11 @@ export default async function SaleInvoicePage({ params }) {
                     <div className="min-w-0">
                       <p className="font-medium text-foreground">{line.productName}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {formatMoney(line.unitPriceCents)} × {line.quantity} · retail
+                        {money(line.unitPriceCents)} × {line.quantity} · retail
                       </p>
                     </div>
                     <p className="shrink-0 font-semibold tabular-nums text-foreground">
-                      {formatMoney(line.lineTotalCents)}
+                      {money(line.lineTotalCents)}
                     </p>
                   </li>
                 ))}
@@ -207,12 +208,12 @@ export default async function SaleInvoicePage({ params }) {
                       <p className="font-medium text-foreground">{sale.productName}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {sale.unitPriceCents != null
-                          ? `${formatMoney(sale.unitPriceCents)} × ${sale.quantity}`
+                          ? `${money(sale.unitPriceCents)} × ${sale.quantity}`
                           : `Qty ${sale.quantity}`}
                       </p>
                     </div>
                     <p className="shrink-0 font-semibold tabular-nums text-foreground">
-                      {formatMoney(sale.totalCents)}
+                      {money(sale.totalCents)}
                     </p>
                   </li>
                 ) : null}
@@ -232,7 +233,7 @@ export default async function SaleInvoicePage({ params }) {
                   </p>
                 </div>
                 <p className="text-2xl font-semibold tabular-nums tracking-tight">
-                  {formatMoney(sale.totalCents)}
+                  {money(sale.totalCents)}
                 </p>
               </div>
             </div>

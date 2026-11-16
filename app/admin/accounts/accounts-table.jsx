@@ -30,10 +30,11 @@ function formatMonth(key) {
 const profitClass = (cents) =>
   cn("font-medium tabular-nums", cents < 0 ? "text-destructive" : "text-foreground");
 
-export function AccountsTable({ initialMonths }) {
+export function AccountsTable({ initialMonths, currency = "USD" }) {
+  const money = (cents) => formatMoney(cents, currency);
   const { data: months } = useQuery({
-    queryKey: queryKeys.accounts,
-    queryFn: fetchAccountsAction,
+    queryKey: [...queryKeys.accounts, currency],
+    queryFn: () => fetchAccountsAction(currency),
     initialData: initialMonths,
   });
 
@@ -57,10 +58,10 @@ export function AccountsTable({ initialMonths }) {
   return (
     <>
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard value={formatMoney(totals.revenueCents)} label="Sales, all time" />
-        <StatCard value={formatMoney(totals.expensesCents)} label="Expenses, all time" />
+        <StatCard value={money(totals.revenueCents)} label="Sales, all time" />
+        <StatCard value={money(totals.expensesCents)} label="Expenses, all time" />
         <StatCard
-          value={formatMoney(totals.profitCents)}
+          value={money(totals.profitCents)}
           label="Profit, all time"
           hint="Sales minus expenses"
         />
@@ -88,13 +89,13 @@ export function AccountsTable({ initialMonths }) {
                   <TableCell className="text-right tabular-nums">{m.saleCount}</TableCell>
                   <TableCell className="text-right tabular-nums">{m.unitsSold}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(m.revenueCents)}
+                    {money(m.revenueCents)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(m.expensesCents)}
+                    {money(m.expensesCents)}
                   </TableCell>
                   <TableCell className={cn("text-right", profitClass(m.profitCents))}>
-                    {formatMoney(m.profitCents)}
+                    {money(m.profitCents)}
                   </TableCell>
                 </TableRow>
               ))}

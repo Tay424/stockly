@@ -50,7 +50,11 @@ function toAmount(cents) {
   return ((cents ?? 0) / 100).toFixed(2);
 }
 
-export function CategoriesTable({ initialCategories }) {
+export function CategoriesTable({
+  initialCategories,
+  priceLocations = [],
+  locationPrices = [],
+}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null); // null = closed, {} = new
@@ -336,6 +340,49 @@ export function CategoriesTable({ initialCategories }) {
                 </p>
               </div>
             </div>
+            {priceLocations.map((location) => {
+              const saved = locationPrices.find(
+                (row) => row.locationId === location.id && row.categoryId === editing?.id && !row.productId,
+              );
+              return (
+                <div key={location.id} className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor={`loc-retail-pack-${location.id}`}>
+                      {location.name} retail pack ({location.currency})
+                    </Label>
+                    <Input
+                      id={`loc-retail-pack-${location.id}`}
+                      name={`locRetailPack_${location.id}`}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      defaultValue={
+                        saved?.retailPackPriceCents != null
+                          ? toAmount(saved.retailPackPriceCents)
+                          : ""
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`loc-wholesale-pack-${location.id}`}>
+                      {location.name} wholesale pack ({location.currency})
+                    </Label>
+                    <Input
+                      id={`loc-wholesale-pack-${location.id}`}
+                      name={`locWholesalePack_${location.id}`}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      defaultValue={
+                        saved?.wholesalePackPriceCents != null
+                          ? toAmount(saved.wholesalePackPriceCents)
+                          : ""
+                      }
+                    />
+                  </div>
+                </div>
+              );
+            })}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
                 Cancel
