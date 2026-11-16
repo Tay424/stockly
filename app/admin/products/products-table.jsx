@@ -78,12 +78,7 @@ function DiscountCell({ product }) {
   );
 }
 
-export function ProductsTable({
-  initialCategories,
-  initialProducts,
-  priceLocations = [],
-  locationPrices = [],
-}) {
+export function ProductsTable({ initialCategories, initialProducts }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -271,7 +266,12 @@ export function ProductsTable({
                       {product.categoryName ?? "—"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatMoney(product.retailPriceCents)}
+                      <span className="block">{formatMoney(product.retailPriceCents, "USD")}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {product.zarRetailPriceCents == null
+                          ? "No ZAR price"
+                          : formatMoney(product.zarRetailPriceCents, "ZAR")}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <DiscountCell product={product} />
@@ -392,7 +392,7 @@ export function ProductsTable({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="product-retail">Retail price</Label>
+                <Label htmlFor="product-retail">Retail price (USD)</Label>
                 <Input
                   id="product-retail"
                   name="retailPrice"
@@ -402,6 +402,9 @@ export function ProductsTable({
                   defaultValue={editing?.id ? toAmount(editing.retailPriceCents) : ""}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Used by every US dollar shop, including Harare and Gweru.
+                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="product-stock">Stock on hand</Label>
@@ -434,27 +437,23 @@ export function ProductsTable({
               </p>
             </div>
 
-            {priceLocations.map((location) => {
-              const saved = locationPrices.find(
-                (row) => row.locationId === location.id && row.productId === editing?.id,
-              );
-              return (
-                <div key={location.id} className="grid gap-2">
-                  <Label htmlFor={`loc-retail-${location.id}`}>
-                    {location.name} retail ({location.currency})
-                  </Label>
-                  <Input
-                    id={`loc-retail-${location.id}`}
-                    name={`locRetail_${location.id}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    defaultValue={saved ? (saved.retailPriceCents / 100).toFixed(2) : ""}
-                    placeholder="Required before this shop can sell it"
-                  />
-                </div>
-              );
-            })}
+            <div className="grid gap-2">
+              <Label htmlFor="product-zar-retail">Retail price (ZAR)</Label>
+              <Input
+                id="product-zar-retail"
+                name="zarRetailPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={
+                  editing?.zarRetailPriceCents == null ? "" : toAmount(editing.zarRetailPriceCents)
+                }
+                placeholder="Shared by every rand shop"
+              />
+              <p className="text-xs text-muted-foreground">
+                Johannesburg and Cape Town use this same price. Leave blank until you sell it in rand.
+              </p>
+            </div>
 
             <div className="grid gap-2">
               <Label htmlFor="product-low-stock">Low stock at</Label>
