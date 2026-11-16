@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import { createProduct, deleteProduct, listProducts, updateProduct } from "@/lib/catalog";
-import { upsertProductLocationPrice } from "@/lib/location-prices";
 import { USUAL_SOURCES } from "@/lib/location-rules";
 import { parseMoneyToCents } from "@/lib/pricing";
 import { storeProductImage } from "@/lib/receipts";
@@ -27,6 +26,8 @@ function readForm(formData) {
   const description = String(formData.get("description") ?? "").trim();
   const categoryId = String(formData.get("categoryId") ?? "").trim();
   const retailPriceCents = parseMoneyToCents(formData.get("retailPrice"));
+  const zarRaw = String(formData.get("zarRetailPrice") ?? "").trim();
+  const zarRetailPriceCents = zarRaw === "" ? null : parseMoneyToCents(zarRaw);
   const stock = Number(formData.get("stock") ?? 0);
   const stockReason = String(formData.get("stockReason") ?? "").trim();
   const lowStockThreshold = Number(formData.get("lowStockThreshold") ?? 5);
@@ -38,6 +39,9 @@ function readForm(formData) {
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Pick a category." };
   if (retailPriceCents === null) return { error: "Retail price must be a valid amount." };
+  if (zarRaw !== "" && zarRetailPriceCents === null) {
+    return { error: "Rand retail price must be a valid amount." };
+  }
   if (!Number.isInteger(stock) || stock < 0) {
     return { error: "Stock must be a whole number." };
   }
@@ -69,6 +73,7 @@ function readForm(formData) {
       description,
       categoryId,
       retailPriceCents,
+      zarRetailPriceCents,
       stock,
       lowStockThreshold,
       // A 0% discount clears the window rather than leaving orphaned dates.
@@ -111,7 +116,6 @@ export async function saveProductAction(id, formData) {
   }
 
   const actor = { id: user.id, name: user.name };
-  let productId = id;
 
   if (id) {
     const result = await updateProduct(id, fields, { actor, stockReason });
@@ -126,17 +130,7 @@ export async function saveProductAction(id, formData) {
       fields.imageMime = null;
       fields.imageName = null;
     }
-    productId = await createProduct(fields, { actor, stockReason });
-  }
-
-  for (const [key, value] of formData.entries()) {
-    if (!String(key).startsWith("locRetail_")) continue;
-    const raw = String(value ?? "").trim();
-    if (!raw) continue;
-    const cents = parseMoneyToCents(raw);
-    if (cents === null) return { error: "A location price must be a valid amount." };
-    const saved = await upsertProductLocationPrice(String(key).slice("locRetail_".length), productId, cents);
-    if (!saved.ok) return { error: saved.reason };
+    await createProduct(fields, { actor, stockReason });
   }
 
   revalidateStockPaths();
