@@ -186,7 +186,7 @@ export function MySalesTable({ initialSales }) {
                   <TableCell className="font-medium text-foreground">{sale.productName}</TableCell>
                   <TableCell className="text-right tabular-nums">{sale.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents)}
+                    {sale.unitPriceCents == null ? "—" : formatMoney(sale.unitPriceCents, sale.currency)}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1.5">
@@ -199,7 +199,7 @@ export function MySalesTable({ initialSales }) {
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
-                    {formatMoney(sale.totalCents)}
+                    {formatMoney(sale.totalCents, sale.currency)}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={STATUS_TONE[sale.status] ?? "muted"}>

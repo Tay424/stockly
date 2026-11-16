@@ -1,14 +1,15 @@
 "use server";
 
 import { getTodayIntegrity } from "@/lib/catalog";
-import { getTransferIntegritySnapshot } from "@/lib/locations";
+import { getTransferIntegritySnapshot, harareSourceSnapshot } from "@/lib/locations";
 import { requireAdmin } from "@/lib/session";
 
 export async function fetchIntegrityAction() {
   await requireAdmin();
-  const [snapshot, transfers] = await Promise.all([
+  const [snapshot, transfers, inbound] = await Promise.all([
     getTodayIntegrity(),
     getTransferIntegritySnapshot(),
+    harareSourceSnapshot(),
   ]);
-  return { ...snapshot, transfers };
+  return { ...snapshot, transfers, inbound };
 }

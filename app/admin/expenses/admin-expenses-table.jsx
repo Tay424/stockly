@@ -170,13 +170,15 @@ export function AdminExpensesTable({ initialExpenses }) {
   const { page, paginated, setPage, totalItems, totalPages, pageSize } =
     useTablePagination(filtered);
 
-  const approvedTotal = useMemo(
-    () =>
-      filtered
-        .filter((e) => e.status === EXPENSE_STATUS.approved)
-        .reduce((sum, e) => sum + (e.amountCents ?? 0), 0),
-    [filtered],
-  );
+  const approvedByCurrency = useMemo(() => {
+    const map = new Map();
+    for (const expense of filtered) {
+      if (expense.status !== EXPENSE_STATUS.approved) continue;
+      const code = expense.currency || "USD";
+      map.set(code, (map.get(code) ?? 0) + (expense.amountCents ?? 0));
+    }
+    return [...map.entries()];
+  }, [filtered]);
 
   function openNew() {
     setFormCategory(EXPENSE_CATEGORIES[0].value);
@@ -219,7 +221,7 @@ export function AdminExpensesTable({ initialExpenses }) {
                     {expense.recordedByName ?? "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(expense.amountCents)}
+                    {formatMoney(expense.amountCents, expense.currency)}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" onClick={() => setDetail(expense)}>
@@ -252,7 +254,9 @@ export function AdminExpensesTable({ initialExpenses }) {
           <span className="text-sm text-muted-foreground">
             Approved total{" "}
             <span className="font-medium text-foreground tabular-nums">
-              {formatMoney(approvedTotal)}
+              {approvedByCurrency.length === 0
+                ? formatMoney(0)
+                : approvedByCurrency.map(([code, cents]) => formatMoney(cents, code)).join(" · ")}
             </span>
           </span>
           <Select
@@ -326,7 +330,7 @@ export function AdminExpensesTable({ initialExpenses }) {
                       {expense.spentAt ? dateFormatter.format(new Date(expense.spentAt)) : "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
-                      {formatMoney(expense.amountCents)}
+                      {formatMoney(expense.amountCents, expense.currency)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -491,7 +495,7 @@ export function AdminExpensesTable({ initialExpenses }) {
             <DialogTitle>{detail?.name}</DialogTitle>
             <DialogDescription>
               {detail ? categoryLabel(detail.category) : ""} ·{" "}
-              {detail ? formatMoney(detail.amountCents) : ""}
+              {detail ? formatMoney(detail.amountCents, detail.currency) : ""}
             </DialogDescription>
           </DialogHeader>
           {detail ? (

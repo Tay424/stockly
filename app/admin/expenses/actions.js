@@ -63,13 +63,17 @@ export async function saveAdminExpenseAction(id, formData) {
   const locationIdRaw = String(formData.get("locationId") ?? "").trim();
   let locationId = locationIdRaw || null;
   let locationName = null;
+  let currency = "USD";
+  const branches = await listSellableLocations();
   if (!locationId) {
     const hub = await getHubLocation();
     locationId = hub?.id ?? null;
     locationName = hub?.name ?? null;
+    currency = hub?.currency || "USD";
   } else {
-    const branches = await listSellableLocations();
-    locationName = branches.find((b) => b.id === locationId)?.name ?? null;
+    const branch = branches.find((b) => b.id === locationId);
+    locationName = branch?.name ?? null;
+    currency = branch?.currency || "USD";
   }
 
   const file = formData.get("receipt");
@@ -107,6 +111,7 @@ export async function saveAdminExpenseAction(id, formData) {
       reviewedByName: user.name,
       locationId,
       locationName,
+      currency,
       ...(receipt
         ? {
             receiptUrl: receipt.url,

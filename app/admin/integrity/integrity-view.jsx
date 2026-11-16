@@ -121,6 +121,37 @@ export function IntegrityView({ initialSnapshot }) {
         </Button>
       </div>
 
+      {(snapshot.inbound ?? []).length > 0 ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-medium">Harare inbound</h2>
+            <p className="text-xs text-muted-foreground">
+              Salts produced at Harare stay separate from units received from Johannesburg.
+            </p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead className="text-right">Produced</TableHead>
+                <TableHead className="text-right">From Johannesburg</TableHead>
+                <TableHead className="text-right">Local receive</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {snapshot.inbound.map((row) => (
+                <TableRow key={row.productId}>
+                  <TableCell className="font-medium">{row.productName}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.produced}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.fromJohannesburg}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.localException}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           value={summary.salesCount}

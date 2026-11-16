@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { createProduct, deleteProduct, listProducts, updateProduct } from "@/lib/catalog";
+import { upsertProductLocationPrice } from "@/lib/location-prices";
+import { USUAL_SOURCES } from "@/lib/location-rules";
 import { parseMoneyToCents } from "@/lib/pricing";
 import { storeProductImage } from "@/lib/receipts";
 import { requireAdmin } from "@/lib/session";
@@ -31,6 +33,7 @@ function readForm(formData) {
   const discountPercent = Number(formData.get("discountPercent") ?? 0);
   const discountStartsAt = readDate(formData.get("discountStartsAt"));
   const discountEndsAt = readDate(formData.get("discountEndsAt"));
+  const usualSource = String(formData.get("usualSource") ?? USUAL_SOURCES.fromJohannesburg);
 
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Pick a category." };
@@ -53,6 +56,12 @@ function readForm(formData) {
   if (discountStartsAt && discountEndsAt && discountEndsAt <= discountStartsAt) {
     return { error: "The discount must end after it starts." };
   }
+  if (
+    usualSource !== USUAL_SOURCES.producedAtHarare &&
+    usualSource !== USUAL_SOURCES.fromJohannesburg
+  ) {
+    return { error: "Choose where this product usually comes from." };
+  }
 
   return {
     fields: {
@@ -66,6 +75,7 @@ function readForm(formData) {
       discountPercent: discountPercent > 0 ? discountPercent : 0,
       discountStartsAt: discountPercent > 0 ? discountStartsAt : null,
       discountEndsAt: discountPercent > 0 ? discountEndsAt : null,
+      usualSource,
     },
     stockReason,
   };
@@ -101,6 +111,7 @@ export async function saveProductAction(id, formData) {
   }
 
   const actor = { id: user.id, name: user.name };
+  let productId = id;
 
   if (id) {
     const result = await updateProduct(id, fields, { actor, stockReason });
@@ -115,7 +126,17 @@ export async function saveProductAction(id, formData) {
       fields.imageMime = null;
       fields.imageName = null;
     }
-    await createProduct(fields, { actor, stockReason });
+    productId = await createProduct(fields, { actor, stockReason });
+  }
+
+  for (const [key, value] of formData.entries()) {
+    if (!String(key).startsWith("locRetail_")) continue;
+    const raw = String(value ?? "").trim();
+    if (!raw) continue;
+    const cents = parseMoneyToCents(raw);
+    if (cents === null) return { error: "A location price must be a valid amount." };
+    const saved = await upsertProductLocationPrice(String(key).slice("locRetail_".length), productId, cents);
+    if (!saved.ok) return { error: saved.reason };
   }
 
   revalidateStockPaths();

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createCategory, deleteCategory, listCategories, repriceNhavaSaltHistoricalSales, updateCategory } from "@/lib/catalog";
+import { upsertCategoryLocationPrice } from "@/lib/location-prices";
 import { parseMoneyToCents } from "@/lib/pricing";
 import { requireAdmin } from "@/lib/session";
 
@@ -76,11 +77,37 @@ export async function saveCategoryAction(id, formData) {
   const { error, fields } = readForm(formData);
   if (error) return { error };
 
+  let categoryId = id;
   if (id) {
     const ok = await updateCategory(id, fields);
     if (!ok) return { error: "Category not found." };
   } else {
-    await createCategory(fields);
+    categoryId = await createCategory(fields);
+  }
+
+  const locationIds = new Set();
+  for (const key of formData.keys()) {
+    if (String(key).startsWith("locRetailPack_") || String(key).startsWith("locWholesalePack_")) {
+      locationIds.add(String(key).split("_").slice(1).join("_"));
+    }
+  }
+  for (const locationId of locationIds) {
+    const retailRaw = String(formData.get(`locRetailPack_${locationId}`) ?? "").trim();
+    const wholesaleRaw = String(formData.get(`locWholesalePack_${locationId}`) ?? "").trim();
+    if (!retailRaw && !wholesaleRaw) continue;
+    const retailPackPriceCents = retailRaw ? parseMoneyToCents(retailRaw) : null;
+    const wholesalePackPriceCents = wholesaleRaw ? parseMoneyToCents(wholesaleRaw) : null;
+    if (retailRaw && retailPackPriceCents === null) {
+      return { error: "A location retail pack price must be a valid amount." };
+    }
+    if (wholesaleRaw && wholesalePackPriceCents === null) {
+      return { error: "A location wholesale pack price must be a valid amount." };
+    }
+    const saved = await upsertCategoryLocationPrice(locationId, categoryId, {
+      retailPackPriceCents,
+      wholesalePackPriceCents,
+    });
+    if (!saved.ok) return { error: saved.reason };
   }
 
   revalidatePath("/admin/categories");

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { listProducts } from "@/lib/catalog";
+import { allowedTransferDestinations } from "@/lib/location-rules";
 import { listStockReceives, parseReceivedAt, receiveStock } from "@/lib/inventory";
 import {
   cancelStockTransfer,
@@ -76,7 +77,13 @@ export async function fetchTransfersAction() {
     listStockTransfers({ locationId: loc.location.id, limit: 40 }),
     listOpenTransfersTo(loc.location.id),
   ]);
-  return { transfers, openIncoming, location: loc.location };
+  const shops = await listSellableLocations();
+  return {
+    transfers,
+    openIncoming,
+    location: loc.location,
+    destinations: allowedTransferDestinations(loc.location, shops),
+  };
 }
 
 export async function sendTransferAction(formData) {
@@ -84,24 +91,22 @@ export async function sendTransferAction(formData) {
   const loc = await requireUserLocation(session.user);
   if (!loc.ok) return { error: loc.reason };
   if (!loc.location.isHub) {
-    return { error: "Only Harare (hub) attendants can send stock to Gweru." };
+    return { error: "Only hub attendants can send stock." };
   }
 
   const productId = String(formData.get("productId") ?? "").trim();
   const quantity = Number(formData.get("quantity"));
   const reason = String(formData.get("reason") ?? "").trim();
-
-  const branches = await listSellableLocations();
-  const destination = branches.find((b) => !b.isHub);
-  if (!destination) return { error: "Gweru branch is not set up yet." };
+  const toLocationId = String(formData.get("toLocationId") ?? "").trim();
+  if (!toLocationId) return { error: "Choose a destination." };
 
   const result = await sendStockTransfer({
     productId,
     quantity,
     fromLocationId: loc.location.id,
-    toLocationId: destination.id,
+    toLocationId,
     actor: { id: session.user.id, name: session.user.name },
-    reason: reason || `Transfer to ${destination.name}`,
+    reason,
   });
   if (!result.ok) return { error: result.reason };
 

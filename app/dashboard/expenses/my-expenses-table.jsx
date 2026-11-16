@@ -211,7 +211,7 @@ export function MyExpensesTable({ initialExpenses }) {
                       {expense.spentAt ? dateFormatter.format(new Date(expense.spentAt)) : "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
-                      {formatMoney(expense.amountCents)}
+                      {formatMoney(expense.amountCents, expense.currency)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">

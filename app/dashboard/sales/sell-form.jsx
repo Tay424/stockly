@@ -27,7 +27,8 @@ import {
   recordSaleReceiptAction,
 } from "./actions";
 
-export function SellForm({ initialProducts }) {
+export function SellForm({ initialProducts, currency = "USD" }) {
+  const money = (cents) => formatMoney(cents, currency);
   const queryClient = useQueryClient();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -172,7 +173,7 @@ export function SellForm({ initialProducts }) {
       ]);
       router.refresh();
       toast.success(
-        `Sale recorded — ${formatMoney(res.totalCents)}${res.wholesale ? " (includes wholesale pack)" : ""}.`,
+        `Sale recorded — ${money(res.totalCents)}${res.wholesale ? " (includes wholesale pack)" : ""}.`,
         {
           action: res.saleId
             ? {
@@ -304,13 +305,13 @@ export function SellForm({ initialProducts }) {
                           {(group.retailPackQty ?? 0) > 0 ? (
                             <span>
                               Pack of {group.retailPackQty} @{" "}
-                              {formatMoney(group.retailPackPriceCents ?? 0)}
+                              {money(group.retailPackPriceCents ?? 0)}
                             </span>
                           ) : null}
                           {(group.wholesalePackQty ?? 0) > 0 ? (
                             <span>
                               Wholesale {group.wholesalePackQty} @{" "}
-                              {formatMoney(group.wholesalePackPriceCents ?? 0)}
+                              {money(group.wholesalePackPriceCents ?? 0)}
                             </span>
                           ) : null}
                         </div>
@@ -347,8 +348,8 @@ export function SellForm({ initialProducts }) {
                               </span>
                               <span className="text-xs tabular-nums text-muted-foreground">
                                 {product.retailPackQty > 0
-                                  ? `Pack of ${product.retailPackQty} · ${formatMoney(product.retailPackPriceCents ?? 0)}`
-                                  : formatMoney(product.retailPriceCents)}
+                                  ? `Pack of ${product.retailPackQty} · ${money(product.retailPackPriceCents ?? 0)}`
+                                  : money(product.retailPriceCents)}
                               </span>
                             </div>
                           </button>
@@ -368,7 +369,7 @@ export function SellForm({ initialProducts }) {
                   </p>
                   {preview?.ok ? (
                     <span className="rounded-full bg-background/80 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground ring-1 ring-border">
-                      {formatMoney(preview.totalCents)}
+                      {money(preview.totalCents)}
                     </span>
                   ) : null}
                 </div>
@@ -488,7 +489,7 @@ export function SellForm({ initialProducts }) {
                                   </span>
                                 </div>
                                 <span className="shrink-0 font-semibold tabular-nums">
-                                  {formatMoney(pack.totalCents)}
+                                  {money(pack.totalCents)}
                                 </span>
                               </div>
                               <ul className="space-y-0.5 text-xs text-muted-foreground">
@@ -512,7 +513,7 @@ export function SellForm({ initialProducts }) {
                                   </span>
                                 </div>
                                 <span className="shrink-0 font-semibold tabular-nums">
-                                  {formatMoney(pack.totalCents)}
+                                  {money(pack.totalCents)}
                                 </span>
                               </div>
                               <ul className="space-y-0.5 text-xs text-muted-foreground">
@@ -535,11 +536,11 @@ export function SellForm({ initialProducts }) {
                                   {line.productName} ×{line.quantity}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {formatMoney(line.unitPriceCents)} each · retail
+                                  {money(line.unitPriceCents)} each · retail
                                 </p>
                               </div>
                               <span className="shrink-0 font-semibold tabular-nums">
-                                {formatMoney(line.lineTotalCents)}
+                                {money(line.lineTotalCents)}
                               </span>
                             </div>
                           ))}
@@ -549,7 +550,7 @@ export function SellForm({ initialProducts }) {
                             Total
                           </span>
                           <span className="text-lg font-semibold tabular-nums">
-                            {formatMoney(preview.totalCents)}
+                            {money(preview.totalCents)}
                           </span>
                         </div>
                       </div>
@@ -580,7 +581,7 @@ export function SellForm({ initialProducts }) {
                   {saleMutation.isPending
                     ? "Recording…"
                     : preview?.ok
-                      ? `Confirm · ${formatMoney(preview.totalCents)}`
+                      ? `Confirm · ${money(preview.totalCents)}`
                       : "Confirm sale"}
                 </Button>
               </DialogFooter>
